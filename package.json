@@ -1,0 +1,26 @@
+{
+  "name": "opencode-threadflow",
+  "version": "1.0.0",
+  "description": "Thread flow plugin for opencode",
+  "keywords": [
+    "opencode",
+    "plugin"
+  ],
+  "license": "MIT",
+  "author": "Hauryn Lee",
+  "packageManager": "bun@1.3.11",
+  "type": "module",
+  "main": "src/plugin.ts",
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@opencode-ai/plugin": "^1.4.7"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}
