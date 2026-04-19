@@ -15,7 +15,9 @@
     "src"
   ],
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "render:session-pack": "bun scripts/render-session-context-pack.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test tests"
   },
   "dependencies": {
     "@opencode-ai/plugin": "^1.4.7"
