@@ -1,14 +1,12 @@
 import type {
-  AssistantMessage,
   FilePart,
   Message,
   OpencodeClient,
   Part,
-  PatchPart,
-  StepFinishPart,
-  TextPart,
   ToolPart,
 } from "@opencode-ai/sdk/v2";
+
+const INJECTION_TEXT_LIMIT = 300;
 
 type SessionMessage = {
   info: Message;
@@ -85,26 +83,51 @@ type AssembledAssistantMessage = {
   messageID: string;
   parentID?: string;
   parts: NormalizedPart[];
-  stepFinishReason?: string;
   markers: string[];
 };
 
-type ReducedTurn = {
+type TranscriptEntry = {
+  role: "user" | "assistant";
+  kind: "message" | "file-context";
+  synthetic: boolean;
+  truncated: boolean;
+  preserveNewlines: boolean;
+  content: string;
+};
+
+type ActivityRecord =
+  | {
+      kind: "read";
+      files: string[];
+    }
+  | {
+      kind: "command";
+      commands: string[];
+    }
+  | {
+      kind: "patch";
+      files: string[];
+    }
+  | {
+      kind: "question";
+      answers: string[];
+      questionCount?: number;
+    }
+  | {
+      kind: "subtask";
+      items: string[];
+    };
+
+type CompressedAssistantMessage = {
+  entries: TranscriptEntry[];
+  activity: ActivityRecord[];
+  markers: string[];
+};
+
+type CompressedTurn = {
   turnID: string;
-  userMessageID: string;
-  userText: string;
-  userFlags: string[];
-  assistantMessages: ReducedAssistantMessage[];
-  markers: string[];
-};
-
-type ReducedAssistantMessage = {
-  messageID: string;
-  text?: string;
-  toolLines: string[];
-  patchFiles: string[];
-  fileLines: string[];
-  stepFinishReason?: string;
+  userEntries: TranscriptEntry[];
+  assistantMessages: CompressedAssistantMessage[];
   markers: string[];
 };
 
@@ -117,8 +140,10 @@ type ActivityIndex = {
 };
 
 type ReductionSummary = {
-  reducedTurns: ReducedTurn[];
+  compressedTurns: CompressedTurn[];
+  reducedTurns: CompressedTurn[];
   omittedTurnCount: number;
+  compressedContent: string[];
   omittedContent: string[];
 };
 
@@ -159,15 +184,13 @@ export async function buildSessionContextPack({
   });
   const assembledTurns = assembleTurns(normalized.messages);
   const reduction = reduceTurns(assembledTurns);
-  const activityIndex = buildActivityIndex(reduction.reducedTurns);
+  const activityIndex = buildActivityIndex(reduction.compressedTurns);
 
   return renderContextPack({
     session: normalized.session,
-    reducedTurns: reduction.reducedTurns,
-    activityIndex,
-    omittedContent: reduction.omittedContent,
-    omittedTurnCount: reduction.omittedTurnCount,
-    totalTurnCount: assembledTurns.length,
+    compressedTurns: reduction.compressedTurns,
+    activitySummary: activityIndex,
+    compressedContent: reduction.compressedContent,
   });
 }
 
@@ -237,9 +260,9 @@ export function assembleTurns(messages: NormalizedMessage[]): AssembledTurn[] {
 }
 
 export function reduceTurns(turns: AssembledTurn[]): ReductionSummary {
-  const omittedReasons = new Set<string>();
+  const compressedContent = new Set<string>();
   const repeatedReadPaths = new Set<string>();
-  const reducedTurns: ReducedTurn[] = [];
+  const compressedTurns: CompressedTurn[] = [];
   let omittedTurnCount = 0;
 
   for (let index = 0; index < turns.length; index += 1) {
@@ -247,29 +270,34 @@ export function reduceTurns(turns: AssembledTurn[]): ReductionSummary {
     if (!turn) {
       continue;
     }
-    const reducedTurn = reduceTurn(
-      turn,
-      index + 1,
-      omittedReasons,
-      repeatedReadPaths,
-    );
 
-    if (shouldOmitTurn(reducedTurn)) {
+    const compressedTurn = compressTurn({
+      turn,
+      turnNumber: index + 1,
+      compressedContent,
+      repeatedReadPaths,
+    });
+
+    if (!shouldIncludeTurn(compressedTurn)) {
       omittedTurnCount += 1;
       continue;
     }
 
-    reducedTurns.push(reducedTurn);
+    compressedTurns.push(compressedTurn);
   }
 
+  const compressedMarkers = sortStrings(Array.from(compressedContent));
+
   return {
-    reducedTurns,
+    compressedTurns,
+    reducedTurns: compressedTurns,
     omittedTurnCount,
-    omittedContent: sortStrings(Array.from(omittedReasons)),
+    compressedContent: compressedMarkers,
+    omittedContent: compressedMarkers,
   };
 }
 
-export function buildActivityIndex(turns: ReducedTurn[]): ActivityIndex {
+export function buildActivityIndex(turns: CompressedTurn[]): ActivityIndex {
   const filesRead = new Set<string>();
   const filesPatched = new Set<string>();
   const commands = new Set<string>();
@@ -278,34 +306,42 @@ export function buildActivityIndex(turns: ReducedTurn[]): ActivityIndex {
 
   for (const turn of turns) {
     for (const assistantMessage of turn.assistantMessages) {
-      for (const toolLine of assistantMessage.toolLines) {
-        if (toolLine.startsWith("read ")) {
-          const path = extractFieldValue(toolLine, "filePath");
-          if (path) filesRead.add(path);
+      for (const activity of assistantMessage.activity) {
+        switch (activity.kind) {
+          case "read":
+            for (const file of activity.files) {
+              filesRead.add(file);
+            }
+            break;
+          case "patch":
+            for (const file of activity.files) {
+              filesPatched.add(file);
+            }
+            break;
+          case "command":
+            for (const command of activity.commands) {
+              commands.add(command);
+            }
+            break;
+          case "question":
+            if (activity.answers.length > 0) {
+              for (const answer of activity.answers) {
+                questionsAnswered.add(answer);
+              }
+              break;
+            }
+            if (activity.questionCount !== undefined) {
+              questionsAnswered.add(
+                `${activity.questionCount} question${pluralize(activity.questionCount)}`,
+              );
+            }
+            break;
+          case "subtask":
+            for (const item of activity.items) {
+              subtasks.add(item);
+            }
+            break;
         }
-        if (toolLine.startsWith("bash ")) {
-          const command = extractFieldValue(toolLine, "command");
-          if (command) commands.add(command);
-        }
-        if (toolLine.startsWith("question ")) {
-          const answers = extractFieldValue(toolLine, "answers");
-          if (answers) questionsAnswered.add(answers);
-        }
-        if (toolLine.startsWith("task ")) {
-          const description = extractFieldValue(toolLine, "description");
-          const sessionID = extractFieldValue(toolLine, "sessionID");
-          if (description || sessionID) {
-            subtasks.add(
-              sessionID
-                ? `${description ?? "[unknown]"} (${sessionID})`
-                : (description ?? "[unknown]"),
-            );
-          }
-        }
-      }
-
-      for (const file of assistantMessage.patchFiles) {
-        filesPatched.add(file);
       }
     }
   }
@@ -321,109 +357,86 @@ export function buildActivityIndex(turns: ReducedTurn[]): ActivityIndex {
 
 export function renderContextPack(input: {
   session: SessionMetadata;
-  reducedTurns: ReducedTurn[];
-  activityIndex: ActivityIndex;
-  omittedContent: string[];
-  omittedTurnCount: number;
-  totalTurnCount: number;
+  compressedTurns?: CompressedTurn[];
+  reducedTurns?: CompressedTurn[];
+  activitySummary?: ActivityIndex;
+  activityIndex?: ActivityIndex;
+  compressedContent?: string[];
+  omittedContent?: string[];
 }): string {
+  const compressedTurns = input.compressedTurns ?? input.reducedTurns ?? [];
+  const activitySummary = input.activitySummary ??
+    input.activityIndex ?? {
+      filesRead: [],
+      filesPatched: [],
+      commands: [],
+      questionsAnswered: [],
+      subtasks: [],
+    };
+  const compressedContent =
+    input.compressedContent ?? input.omittedContent ?? [];
+
   const lines = [
     "# Session Context Pack",
     "",
     "## Session",
-    `- ID: ${input.session.id}`,
     `- Title: ${formatTitle(input.session.title)}`,
     `- Updated At: ${new Date(input.session.updatedAt).toISOString()}`,
     "",
-    "## Transcript Skeleton",
+    "## Transcript",
     "",
   ];
 
-  if (input.reducedTurns.length === 0) {
+  if (compressedTurns.length === 0) {
     lines.push("[no included turns]", "");
   }
 
-  for (const turn of input.reducedTurns) {
+  for (const turn of compressedTurns) {
     lines.push(`### Turn ${turn.turnID}`);
-    lines.push(`- User Message: ${turn.userMessageID}`);
-    lines.push(`- User Text: ${turn.userText}`);
-    lines.push(`- User Flags: ${turn.userFlags.join(", ")}`);
-    if (turn.markers.length > 0) {
-      lines.push(`- Turn Markers: ${turn.markers.join(", ")}`);
-    }
-    lines.push("- Assistant Messages:");
 
-    if (turn.assistantMessages.length === 0) {
-      lines.push("  - [none]");
+    if (turn.markers.length > 0) {
+      lines.push(`- Notes: ${turn.markers.join("; ")}`);
+    }
+
+    for (const entry of turn.userEntries) {
+      lines.push(...renderTranscriptEntry(entry));
     }
 
     for (const assistantMessage of turn.assistantMessages) {
-      lines.push(`  - ${assistantMessage.messageID}`);
-      if (assistantMessage.text) {
-        lines.push(`    - Text: ${assistantMessage.text}`);
+      for (const entry of assistantMessage.entries) {
+        lines.push(...renderTranscriptEntry(entry));
       }
-      for (const toolLine of assistantMessage.toolLines) {
-        lines.push(`    - Tool: ${toolLine}`);
+
+      if (assistantMessage.activity.length > 0) {
+        lines.push("- Assistant Activity:");
+        lines.push(...renderActivityRecords(assistantMessage.activity, 1));
       }
-      if (assistantMessage.patchFiles.length > 0) {
-        lines.push(
-          `    - Patch Files: ${assistantMessage.patchFiles.join(", ")}`,
-        );
-      }
-      for (const fileLine of assistantMessage.fileLines) {
-        lines.push(`    - File: ${fileLine}`);
-      }
-      if (assistantMessage.stepFinishReason) {
-        lines.push(`    - Step Finish: ${assistantMessage.stepFinishReason}`);
-      }
+
       if (assistantMessage.markers.length > 0) {
-        lines.push(`    - Markers: ${assistantMessage.markers.join(", ")}`);
+        lines.push(`- Assistant Notes: ${assistantMessage.markers.join("; ")}`);
       }
     }
 
     lines.push("");
   }
 
-  lines.push("## Activity Index");
-  lines.push(renderIndexLine("Files Read", input.activityIndex.filesRead));
-  lines.push(
-    renderIndexLine("Files Patched", input.activityIndex.filesPatched),
-  );
-  lines.push(renderIndexLine("Commands", input.activityIndex.commands));
-  lines.push(
-    renderIndexLine(
-      "Questions Answered",
-      input.activityIndex.questionsAnswered,
-    ),
-  );
-  lines.push(renderIndexLine("Subtasks", input.activityIndex.subtasks));
-  lines.push("");
+  lines.push("## Activity", "");
 
-  lines.push("## Omitted Content");
-  if (input.omittedContent.length === 0) {
+  const activitySections = renderActivitySections(activitySummary);
+  if (activitySections.length === 0) {
+    lines.push("- [none]", "");
+  } else {
+    lines.push(...activitySections, "");
+  }
+
+  lines.push("## Compressed Content");
+  if (compressedContent.length === 0) {
     lines.push("- [none]");
   } else {
-    for (const item of input.omittedContent) {
+    for (const item of compressedContent) {
       lines.push(`- ${item}`);
     }
   }
-  lines.push("");
-
-  lines.push("## Pack Coverage");
-  lines.push(`- Source Session: ${input.session.id}`);
-  lines.push(`- Included Turns: ${input.reducedTurns.length}`);
-  lines.push(`- Omitted Turns: ${input.omittedTurnCount}`);
-  lines.push(
-    `- Coverage Mode: ${input.omittedTurnCount > 0 ? "selective" : "full"}`,
-  );
-  lines.push(
-    `- Omission Policy: ${
-      input.omittedTurnCount > 0
-        ? "type-based reduction with selective turn omission"
-        : "type-based reduction"
-    }`,
-  );
-  lines.push(`- Source Turns: ${input.totalTurnCount}`);
 
   return lines.join("\n");
 }
@@ -525,130 +538,131 @@ function buildAssistantMessage(
     assistantMessage.parentID = message.parentID;
   }
 
-  const stepFinishReason = getStepFinishReason(message.parts);
-  if (stepFinishReason) {
-    assistantMessage.stepFinishReason = stepFinishReason;
-  }
-
   return assistantMessage;
 }
 
-function reduceTurn(
-  turn: AssembledTurn,
-  turnNumber: number,
-  omittedReasons: Set<string>,
-  repeatedReadPaths: Set<string>,
-): ReducedTurn {
-  const userFlags = new Set<string>();
-  const markers = [...turn.markers];
-  const userTexts: string[] = [];
-
-  if (turn.userParts.length === 0) {
-    userTexts.push("[missing user message]");
-    userFlags.add("synthetic=false");
-  }
-
-  for (const part of turn.userParts) {
-    if (part.type === "text") {
-      if (part.synthetic) {
-        omittedReasons.add(classifySyntheticOmission(part.text));
-        continue;
-      }
-
-      userFlags.add("synthetic=false");
-      if (part.text.includes("@@ses_")) {
-        userFlags.add("contains-reference=true");
-      }
-
-      if (isTemplateHeavyText(part.text)) {
-        userFlags.add("template-heavy=true");
-        userTexts.push("[template body omitted]");
-        omittedReasons.add("[document omitted]");
-        continue;
-      }
-
-      const preview = summarizeText(part.text, 240);
-      if (preview) {
-        userTexts.push(preview);
-      }
-      continue;
-    }
-
-    if (part.type === "file") {
-      userFlags.add("contains-file-part=true");
-      continue;
-    }
-  }
-
-  if (!userFlags.has("synthetic=false")) {
-    userFlags.add("synthetic=true");
-  }
-
-  const assistantMessages = turn.assistantMessages.map((message) =>
-    reduceAssistantMessage(message, omittedReasons, repeatedReadPaths),
-  );
-
+function compressTurn(input: {
+  turn: AssembledTurn;
+  turnNumber: number;
+  compressedContent: Set<string>;
+  repeatedReadPaths: Set<string>;
+}): CompressedTurn {
   return {
-    turnID: `T${turnNumber}`,
-    userMessageID: turn.userMessageID,
-    userText:
-      userTexts.length > 0
-        ? dedupePreserveOrder(userTexts).join(" / ")
-        : "[omitted]",
-    userFlags: sortStrings(Array.from(userFlags)),
-    assistantMessages,
-    markers,
+    turnID: `T${input.turnNumber}`,
+    userEntries: dedupeEntries(
+      compressUserParts(input.turn.userParts, input.compressedContent),
+    ),
+    assistantMessages: input.turn.assistantMessages.map((message) =>
+      compressAssistantMessage({
+        message,
+        compressedContent: input.compressedContent,
+        repeatedReadPaths: input.repeatedReadPaths,
+      }),
+    ),
+    markers: dedupePreserveOrder(input.turn.markers),
   };
 }
 
-function reduceAssistantMessage(
-  message: AssembledAssistantMessage,
-  omittedReasons: Set<string>,
-  repeatedReadPaths: Set<string>,
-): ReducedAssistantMessage {
-  const textLines: string[] = [];
-  const toolLines: string[] = [];
-  const patchFiles = new Set<string>();
-  const fileLines = new Set<string>();
-  const markers = [...message.markers];
+function compressUserParts(
+  parts: NormalizedPart[],
+  compressedContent: Set<string>,
+): TranscriptEntry[] {
+  if (parts.length === 0) {
+    return [
+      {
+        role: "user",
+        kind: "message",
+        synthetic: false,
+        truncated: false,
+        preserveNewlines: false,
+        content: "[missing user message]",
+      },
+    ];
+  }
 
-  for (const part of message.parts) {
+  const entries: TranscriptEntry[] = [];
+
+  for (const part of parts) {
     switch (part.type) {
       case "text": {
-        if (part.synthetic) {
-          omittedReasons.add(classifySyntheticOmission(part.text));
-          continue;
-        }
-
-        const preview = summarizeText(part.text, 220);
-        if (preview && !isPureTransitionText(preview)) {
-          textLines.push(preview);
-        }
-        break;
-      }
-      case "reasoning": {
-        omittedReasons.add("[reasoning omitted]");
-        break;
-      }
-      case "tool": {
-        const summary = summarizeTool(part, omittedReasons, repeatedReadPaths);
-        if (summary) {
-          toolLines.push(summary);
-        }
-        break;
-      }
-      case "patch": {
-        for (const file of part.files) {
-          patchFiles.add(file);
+        const entry = compressTextEntry({
+          role: "user",
+          text: part.text,
+          synthetic: part.synthetic,
+          compressedContent,
+        });
+        if (entry) {
+          entries.push(entry);
         }
         break;
       }
       case "file": {
-        fileLines.add(part.path ?? "[unknown]");
+        entries.push(buildFileReferenceEntry("user", part.path));
+        break;
+      }
+      case "reasoning":
+        compressedContent.add("[reasoning omitted]");
+        break;
+      default:
+        break;
+    }
+  }
+
+  return entries;
+}
+
+function compressAssistantMessage(input: {
+  message: AssembledAssistantMessage;
+  compressedContent: Set<string>;
+  repeatedReadPaths: Set<string>;
+}): CompressedAssistantMessage {
+  const entries: TranscriptEntry[] = [];
+  const activity: ActivityRecord[] = [];
+  const markers = [...input.message.markers];
+
+  for (const part of input.message.parts) {
+    switch (part.type) {
+      case "text": {
+        const entry = compressTextEntry({
+          role: "assistant",
+          text: part.text,
+          synthetic: part.synthetic,
+          compressedContent: input.compressedContent,
+        });
+        if (entry) {
+          entries.push(entry);
+        }
+        break;
+      }
+      case "reasoning": {
+        input.compressedContent.add("[reasoning omitted]");
+        break;
+      }
+      case "tool": {
+        activity.push(
+          ...summarizeToolActivity({
+            part,
+            compressedContent: input.compressedContent,
+            repeatedReadPaths: input.repeatedReadPaths,
+          }),
+        );
+        break;
+      }
+      case "patch": {
+        const files = sortStrings(dedupePreserveOrder(part.files));
+        if (files.length > 0) {
+          activity.push({
+            kind: "patch",
+            files,
+          });
+        }
+        break;
+      }
+      case "file": {
+        entries.push(buildFileReferenceEntry("assistant", part.path));
         break;
       }
       case "other": {
-        markers.push(`contains ${part.partType}`);
         break;
       }
       default:
@@ -656,213 +670,522 @@ function reduceAssistantMessage(
     }
   }
 
-  const reducedAssistantMessage: ReducedAssistantMessage = {
-    messageID: message.messageID,
-    toolLines: dedupePreserveOrder(toolLines),
-    patchFiles: sortStrings(Array.from(patchFiles)),
-    fileLines: sortStrings(Array.from(fileLines)),
-    markers,
+  return {
+    entries: dedupeEntries(entries),
+    activity: mergeActivities(activity),
+    markers: dedupePreserveOrder(markers),
   };
-
-  if (textLines.length > 0) {
-    reducedAssistantMessage.text = dedupePreserveOrder(textLines).join(" / ");
-  }
-
-  if (message.stepFinishReason) {
-    reducedAssistantMessage.stepFinishReason = message.stepFinishReason;
-  }
-
-  return reducedAssistantMessage;
 }
 
-function shouldOmitTurn(turn: ReducedTurn): boolean {
+function summarizeToolActivity(input: {
+  part: Extract<NormalizedPart, { type: "tool" }>;
+  compressedContent: Set<string>;
+  repeatedReadPaths: Set<string>;
+}): ActivityRecord[] {
+  const activity: ActivityRecord[] = [];
+  const toolInput = input.part.input;
+
+  switch (input.part.tool) {
+    case "read": {
+      const filePath =
+        getString(toolInput.filePath) ?? getString(toolInput.path);
+      if (filePath) {
+        if (input.repeatedReadPaths.has(filePath)) {
+          input.compressedContent.add("[repeated file read omitted]");
+        }
+        input.repeatedReadPaths.add(filePath);
+        activity.push({
+          kind: "read",
+          files: [filePath],
+        });
+      }
+      if (input.part.output) {
+        input.compressedContent.add("[tool output truncated]");
+      }
+      break;
+    }
+    case "bash": {
+      const command = normalizeInlineText(getString(toolInput.command) ?? "");
+      if (command) {
+        activity.push({
+          kind: "command",
+          commands: [command],
+        });
+      }
+      if (input.part.output) {
+        input.compressedContent.add("[tool output truncated]");
+      }
+      break;
+    }
+    case "question": {
+      const answers = getAnswers(input.part.metadata?.answers);
+      const questionCount = getArrayLength(toolInput.questions);
+      if (answers.length > 0 || questionCount !== undefined) {
+        const questionActivity: Extract<ActivityRecord, { kind: "question" }> =
+          {
+            kind: "question",
+            answers,
+          };
+        if (questionCount !== undefined) {
+          questionActivity.questionCount = questionCount;
+        }
+        activity.push(questionActivity);
+      }
+      break;
+    }
+    case "task": {
+      const description =
+        normalizeInlineText(getString(toolInput.description) ?? "") ||
+        "[unknown subtask]";
+      const sessionID = getString(input.part.metadata?.sessionId);
+      activity.push({
+        kind: "subtask",
+        items: [sessionID ? `${description} (${sessionID})` : description],
+      });
+      break;
+    }
+    case "apply_patch": {
+      const files = extractPatchFiles(getString(toolInput.patchText) ?? "");
+      if (files.length > 0) {
+        activity.push({
+          kind: "patch",
+          files,
+        });
+      }
+      break;
+    }
+    default: {
+      if (input.part.output) {
+        input.compressedContent.add("[tool output truncated]");
+      }
+      break;
+    }
+  }
+
+  if (input.part.status === "error" && input.part.error) {
+    input.compressedContent.add("[tool output truncated]");
+  }
+
+  return activity;
+}
+
+function compressTextEntry(input: {
+  role: "user" | "assistant";
+  text: string;
+  synthetic: boolean;
+  compressedContent: Set<string>;
+}): TranscriptEntry | null {
+  if (input.synthetic) {
+    const isFileContext = looksLikeFileContext(input.text);
+    const prepared = isFileContext
+      ? normalizeMultilineText(input.text)
+      : normalizeSyntheticText(input.text);
+
+    if (!prepared) {
+      return null;
+    }
+
+    const truncationMarker = isFileContext
+      ? "[file content truncated]"
+      : "[synthetic content truncated]";
+    const { content, truncated } = truncateText({
+      text: prepared,
+      limit: INJECTION_TEXT_LIMIT,
+      marker: truncationMarker,
+      preserveNewlines: true,
+      compressedContent: input.compressedContent,
+    });
+
+    return {
+      role: input.role,
+      kind: isFileContext ? "file-context" : "message",
+      synthetic: true,
+      truncated,
+      preserveNewlines: true,
+      content,
+    };
+  }
+
+  const content = normalizeInlineText(input.text);
+  if (!content) {
+    return null;
+  }
+
+  return {
+    role: input.role,
+    kind: "message",
+    synthetic: false,
+    truncated: false,
+    preserveNewlines: false,
+    content,
+  };
+}
+
+function buildFileReferenceEntry(
+  role: "user" | "assistant",
+  path: string | undefined,
+): TranscriptEntry {
+  return {
+    role,
+    kind: "file-context",
+    synthetic: false,
+    truncated: false,
+    preserveNewlines: false,
+    content: path ?? "[unknown]",
+  };
+}
+
+function mergeActivities(records: ActivityRecord[]): ActivityRecord[] {
+  const readFiles = new Set<string>();
+  const commands = new Set<string>();
+  const patchFiles = new Set<string>();
+  const questionAnswers = new Set<string>();
+  const subtasks = new Set<string>();
+  let questionCount: number | undefined;
+
+  for (const record of records) {
+    switch (record.kind) {
+      case "read":
+        for (const file of record.files) {
+          readFiles.add(file);
+        }
+        break;
+      case "command":
+        for (const command of record.commands) {
+          commands.add(command);
+        }
+        break;
+      case "patch":
+        for (const file of record.files) {
+          patchFiles.add(file);
+        }
+        break;
+      case "question":
+        for (const answer of record.answers) {
+          questionAnswers.add(answer);
+        }
+        if (record.questionCount !== undefined) {
+          questionCount = (questionCount ?? 0) + record.questionCount;
+        }
+        break;
+      case "subtask":
+        for (const item of record.items) {
+          subtasks.add(item);
+        }
+        break;
+    }
+  }
+
+  const merged: ActivityRecord[] = [];
+
+  if (readFiles.size > 0) {
+    merged.push({
+      kind: "read",
+      files: sortStrings(Array.from(readFiles)),
+    });
+  }
+
+  if (commands.size > 0) {
+    merged.push({
+      kind: "command",
+      commands: sortStrings(Array.from(commands)),
+    });
+  }
+
+  if (patchFiles.size > 0) {
+    merged.push({
+      kind: "patch",
+      files: sortStrings(Array.from(patchFiles)),
+    });
+  }
+
+  if (questionAnswers.size > 0 || questionCount !== undefined) {
+    const questionActivity: Extract<ActivityRecord, { kind: "question" }> = {
+      kind: "question",
+      answers: sortStrings(Array.from(questionAnswers)),
+    };
+    if (questionCount !== undefined) {
+      questionActivity.questionCount = questionCount;
+    }
+    merged.push(questionActivity);
+  }
+
+  if (subtasks.size > 0) {
+    merged.push({
+      kind: "subtask",
+      items: sortStrings(Array.from(subtasks)),
+    });
+  }
+
+  return merged;
+}
+
+function shouldIncludeTurn(turn: CompressedTurn): boolean {
   if (turn.markers.length > 0) {
-    return false;
+    return true;
   }
 
-  const hasUserSignal = turn.userText !== "[omitted]";
-  if (hasUserSignal) {
-    return false;
+  if (turn.userEntries.length > 0) {
+    return true;
   }
 
-  return !turn.assistantMessages.some(
+  return turn.assistantMessages.some(
     (message) =>
-      Boolean(message.text) ||
-      message.toolLines.length > 0 ||
-      message.patchFiles.length > 0 ||
-      message.fileLines.length > 0 ||
+      message.entries.length > 0 ||
+      message.activity.length > 0 ||
       message.markers.length > 0,
   );
 }
 
-function summarizeTool(
-  part: Extract<NormalizedPart, { type: "tool" }>,
-  omittedReasons: Set<string>,
-  repeatedReadPaths: Set<string>,
-): string {
-  const fields: string[] = [];
-  const input = part.input;
+function renderTranscriptEntry(entry: TranscriptEntry): string[] {
+  const label = buildEntryLabel(entry);
 
-  switch (part.tool) {
-    case "read": {
-      const filePath = getString(input.filePath) ?? getString(input.path);
-      if (filePath) {
-        fields.push(`filePath=${filePath}`);
-        if (repeatedReadPaths.has(filePath)) {
-          omittedReasons.add("[repeated file read omitted]");
-        }
-        repeatedReadPaths.add(filePath);
-      }
-
-      const loaded = getBoolean(part.metadata?.loaded);
-      const truncated = getBoolean(part.metadata?.truncated);
-      if (loaded !== undefined) fields.push(`loaded=${loaded}`);
-      if (truncated !== undefined) fields.push(`truncated=${truncated}`);
-      if (part.output) omittedReasons.add("[tool output truncated]");
-      break;
-    }
-    case "bash": {
-      const command = getString(input.command);
-      const workdir = getString(input.workdir);
-      const exit = getNumber(part.metadata?.exit);
-      if (command) fields.push(`command=${summarizeText(command, 120)}`);
-      if (workdir) fields.push(`workdir=${workdir}`);
-      if (exit !== undefined) fields.push(`exit=${exit}`);
-      if (part.output) omittedReasons.add("[tool output truncated]");
-      break;
-    }
-    case "glob":
-    case "grep": {
-      const pattern = getString(input.pattern);
-      const path = getString(input.path);
-      const matchCount = getNumber(part.metadata?.matchCount);
-      if (pattern) fields.push(`pattern=${pattern}`);
-      if (path) fields.push(`path=${path}`);
-      if (matchCount !== undefined) fields.push(`matchCount=${matchCount}`);
-      break;
-    }
-    case "webfetch": {
-      const url = getString(input.url);
-      const format = getString(input.format);
-      if (url) fields.push(`url=${url}`);
-      if (format) fields.push(`format=${format}`);
-      if (part.output) omittedReasons.add("[tool output truncated]");
-      break;
-    }
-    case "skill": {
-      const name = getString(input.name) ?? getString(part.metadata?.name);
-      if (name) fields.push(`name=${name}`);
-      omittedReasons.add("[skill output omitted]");
-      break;
-    }
-    case "todowrite": {
-      const todos =
-        getTodoCount(input.todos) ?? getTodoCount(part.metadata?.todos);
-      if (todos !== undefined) fields.push(`todos=${todos}`);
-      break;
-    }
-    case "question": {
-      const questionCount = getArrayLength(input.questions);
-      const answers = formatAnswers(part.metadata?.answers);
-      if (questionCount !== undefined)
-        fields.push(`questions=${questionCount}`);
-      if (answers) fields.push(`answers=${answers}`);
-      break;
-    }
-    case "task": {
-      const description = getString(input.description);
-      const subagentType = getString(input.subagent_type);
-      const sessionID = getString(part.metadata?.sessionId);
-      if (description) {
-        fields.push(`description=${summarizeText(description, 80)}`);
-      }
-      if (subagentType) fields.push(`subagent=${subagentType}`);
-      if (sessionID) fields.push(`sessionID=${sessionID}`);
-      break;
-    }
-    case "apply_patch": {
-      fields.push(`status=${part.status}`);
-      break;
-    }
-    default: {
-      if (part.title) fields.push(`title=${summarizeText(part.title, 80)}`);
-      if (part.error) fields.push(`error=${summarizeText(part.error, 80)}`);
-      if (part.output) omittedReasons.add("[tool output truncated]");
-      break;
-    }
+  if (entry.preserveNewlines || entry.content.includes("\n")) {
+    return [`- ${label}:`, ...indentLines(entry.content.split("\n"), 1)];
   }
 
-  if (part.status === "error" && part.error) {
-    fields.push(`error=${summarizeText(part.error, 120)}`);
-  }
-
-  return [part.tool, ...fields].join(" ").trim();
+  return [`- ${label}: ${entry.content}`];
 }
 
-function getStepFinishReason(parts: NormalizedPart[]): string | undefined {
-  for (const part of parts) {
-    if (part.type === "step-finish") {
-      return part.reason;
+function renderActivityRecords(
+  records: ActivityRecord[],
+  indentLevel: number,
+): string[] {
+  const lines: string[] = [];
+
+  for (const record of records) {
+    lines.push(...renderActivityRecord(record, indentLevel));
+  }
+
+  return lines;
+}
+
+function renderActivityRecord(
+  record: ActivityRecord,
+  indentLevel: number,
+): string[] {
+  const prefix = "  ".repeat(indentLevel);
+  const detailPrefix = "  ".repeat(indentLevel + 1);
+
+  switch (record.kind) {
+    case "read":
+      return [
+        `${prefix}- read ${record.files.length} file${pluralize(record.files.length)}:`,
+        ...record.files.map((file) => `${detailPrefix}- ${file}`),
+      ];
+    case "command":
+      return [
+        `${prefix}- executed ${record.commands.length} command${pluralize(record.commands.length)}:`,
+        ...record.commands.map((command) => `${detailPrefix}- ${command}`),
+      ];
+    case "patch":
+      return [
+        `${prefix}- patched ${record.files.length} file${pluralize(record.files.length)}:`,
+        ...record.files.map((file) => `${detailPrefix}- ${file}`),
+      ];
+    case "question": {
+      if (record.answers.length > 0) {
+        return [
+          `${prefix}- answered ${record.answers.length} question${pluralize(record.answers.length)}:`,
+          ...record.answers.map((answer) => `${detailPrefix}- ${answer}`),
+        ];
+      }
+
+      const questionCount = record.questionCount ?? 0;
+      return [
+        `${prefix}- answered ${questionCount} question${pluralize(questionCount)}`,
+      ];
+    }
+    case "subtask":
+      return [
+        `${prefix}- started ${record.items.length} subtask${pluralize(record.items.length)}:`,
+        ...record.items.map((item) => `${detailPrefix}- ${item}`),
+      ];
+  }
+}
+
+function renderActivitySections(activityIndex: ActivityIndex): string[] {
+  const lines: string[] = [];
+
+  appendActivitySection(lines, "Read", "read", "file", activityIndex.filesRead);
+  appendActivitySection(
+    lines,
+    "Commands",
+    "executed",
+    "command",
+    activityIndex.commands,
+  );
+  appendActivitySection(
+    lines,
+    "Patches",
+    "patched",
+    "file",
+    activityIndex.filesPatched,
+  );
+  appendActivitySection(
+    lines,
+    "Questions",
+    "answered",
+    "question",
+    activityIndex.questionsAnswered,
+  );
+  appendActivitySection(
+    lines,
+    "Subtasks",
+    "started",
+    "subtask",
+    activityIndex.subtasks,
+  );
+
+  return lines;
+}
+
+function appendActivitySection(
+  lines: string[],
+  title: string,
+  verb: string,
+  noun: string,
+  items: string[],
+): void {
+  if (items.length === 0) {
+    return;
+  }
+
+  lines.push(`### ${title}`);
+  lines.push(`- ${verb} ${items.length} ${noun}${pluralize(items.length)}:`);
+  for (const item of items) {
+    lines.push(`  - ${item}`);
+  }
+  lines.push("");
+}
+
+function buildEntryLabel(entry: TranscriptEntry): string {
+  const base =
+    entry.kind === "file-context"
+      ? `${capitalize(entry.role)} File Context`
+      : capitalize(entry.role);
+  const qualifiers: string[] = [];
+
+  if (entry.synthetic) {
+    qualifiers.push("synthetic");
+  }
+  if (entry.truncated) {
+    qualifiers.push("truncated");
+  }
+
+  if (qualifiers.length === 0) {
+    return base;
+  }
+
+  return `${base} (${qualifiers.join(", ")})`;
+}
+
+function normalizeSyntheticText(text: string): string {
+  const normalized = text.replace(/\r\n/g, "\n").trim();
+  return normalized;
+}
+
+function normalizeMultilineText(text: string): string {
+  return text.replace(/\r\n/g, "\n").trim();
+}
+
+function normalizeInlineText(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
+}
+
+function truncateText(input: {
+  text: string;
+  limit: number;
+  marker: string;
+  preserveNewlines: boolean;
+  compressedContent: Set<string>;
+}): { content: string; truncated: boolean } {
+  if (input.text.length <= input.limit) {
+    return {
+      content: input.text,
+      truncated: false,
+    };
+  }
+
+  input.compressedContent.add(input.marker);
+  const head = input.text.slice(0, input.limit).trimEnd();
+
+  return {
+    content: input.preserveNewlines
+      ? `${head}\n${input.marker}`
+      : `${head} ${input.marker}`,
+    truncated: true,
+  };
+}
+
+function dedupeEntries(entries: TranscriptEntry[]): TranscriptEntry[] {
+  const seen = new Set<string>();
+  const result: TranscriptEntry[] = [];
+
+  for (const entry of entries) {
+    const key = [
+      entry.role,
+      entry.kind,
+      String(entry.synthetic),
+      String(entry.truncated),
+      String(entry.preserveNewlines),
+      entry.content,
+    ].join("\u0000");
+
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    result.push(entry);
+  }
+
+  return result;
+}
+
+function indentLines(lines: string[], indentLevel: number): string[] {
+  const prefix = "  ".repeat(indentLevel);
+  return lines.map((line) => `${prefix}${line}`);
+}
+
+function capitalize(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function pluralize(count: number): string {
+  return count === 1 ? "" : "s";
+}
+
+function looksLikeFileContext(text: string): boolean {
+  return (
+    text.includes("<path>") &&
+    (text.includes("<content>") || text.includes("<entries>"))
+  );
+}
+
+function extractPatchFiles(patchText: string): string[] {
+  const files = new Set<string>();
+
+  for (const line of patchText.split("\n")) {
+    const match = line.match(/^\*\*\* (?:Add|Delete|Update) File: (.+)$/);
+    if (match?.[1]) {
+      files.add(match[1].trim());
     }
   }
 
-  return undefined;
+  return sortStrings(Array.from(files));
 }
 
 function isSyntheticPart(part: Part): boolean {
   return part.type === "text" && (part.synthetic ?? false);
 }
 
-function classifySyntheticOmission(text: string): string {
-  if (
-    text.includes("[Session Reference]") ||
-    text.includes("# Session Context Pack")
-  ) {
-    return "[session reference injection omitted]";
+function getAnswers(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
   }
 
-  if (
-    text.includes("Called the Read tool") ||
-    (text.includes("<path>") && text.includes("<content>"))
-  ) {
-    return "[synthetic read injection omitted]";
-  }
-
-  return "[synthetic content omitted]";
-}
-
-function isTemplateHeavyText(text: string): boolean {
-  return (
-    text.length >= 1200 ||
-    text.includes("Implement tasks from an OpenSpec change") ||
-    text.includes("Enter explore mode") ||
-    text.includes("## Handoff Draft") ||
-    text.includes("### 当前任务背景")
-  );
-}
-
-function isPureTransitionText(text: string): boolean {
-  const normalized = text.trim();
-  return (
-    normalized === "" ||
-    normalized === "我会先看一下。" ||
-    normalized === "我先检查一下。"
-  );
-}
-
-function summarizeText(text: string, limit: number): string {
-  const collapsed = text.replace(/\s+/g, " ").trim();
-  if (!collapsed) {
-    return "";
-  }
-  if (collapsed.length <= limit) {
-    return collapsed;
-  }
-  return `${collapsed.slice(0, Math.max(0, limit - 3))}...`;
-}
-
-function renderIndexLine(label: string, values: string[]): string {
-  return `- ${label}: ${values.length > 0 ? values.join(", ") : "[none]"}`;
+  return value.filter((item): item is string => typeof item === "string");
 }
 
 function formatTitle(value: string): string {
@@ -875,7 +1198,9 @@ function dedupePreserveOrder(values: string[]): string[] {
   const result: string[] = [];
 
   for (const value of values) {
-    if (seen.has(value)) continue;
+    if (seen.has(value)) {
+      continue;
+    }
     seen.add(value);
     result.push(value);
   }
@@ -885,17 +1210,6 @@ function dedupePreserveOrder(values: string[]): string[] {
 
 function sortStrings(values: string[]): string[] {
   return [...values].sort((left, right) => left.localeCompare(right));
-}
-
-function extractFieldValue(line: string, key: string): string | undefined {
-  const match = line.match(
-    new RegExp(`${escapeRegExp(key)}=(.+?)(?= [A-Za-z][A-Za-z0-9_]*=|$)`),
-  );
-  return match?.[1]?.trim();
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function getToolStateMetadata(
@@ -951,33 +1265,6 @@ function getString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
-function getNumber(value: unknown): number | undefined {
-  return typeof value === "number" ? value : undefined;
-}
-
-function getBoolean(value: unknown): boolean | undefined {
-  return typeof value === "boolean" ? value : undefined;
-}
-
 function getArrayLength(value: unknown): number | undefined {
   return Array.isArray(value) ? value.length : undefined;
-}
-
-function getTodoCount(value: unknown): number | undefined {
-  return Array.isArray(value) ? value.length : undefined;
-}
-
-function formatAnswers(value: unknown): string | undefined {
-  if (!Array.isArray(value)) {
-    return undefined;
-  }
-
-  const answers = value.filter(
-    (item): item is string => typeof item === "string",
-  );
-  if (answers.length === 0) {
-    return undefined;
-  }
-
-  return `[${answers.join(", ")}]`;
 }

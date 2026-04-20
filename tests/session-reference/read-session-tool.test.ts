@@ -45,7 +45,10 @@ describe("session-reference/read-session-tool", () => {
     );
 
     assert.match(result, /# Session Context Pack/);
-    assert.match(result, new RegExp(`- ID: ${sample.session.id}`));
+    assert.match(result, /## Transcript/);
+    assert.match(result, /## Activity/);
+    assert.match(result, /## Compressed Content/);
+    assert.match(result, new RegExp(`- Title: ${sample.session.title}`));
     assert.deepEqual(metadataCalls, [
       {
         title: `Read session ${sample.session.id}`,
