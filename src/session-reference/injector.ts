@@ -83,6 +83,26 @@ export async function buildSessionReferenceInjectionParts({
     );
   }
 
+  if (injectedParts.length > 0) {
+    injectedParts.push(
+      createSyntheticTextPart(
+        [
+          "When responding, start with a brief session-reference loading report.",
+          "For each successfully loaded session, list the session ID with its title.",
+          "For each failed reference, note the failure reason.",
+          "Keep this report concise -- at most one line per reference.",
+          "Do not stop after the loading report.",
+          "Continue with the user's current request, using the loaded session content as reference material when relevant.",
+        ].join(" "),
+        {
+          threadflow: {
+            type: "session-reference-prompt",
+          },
+        },
+      ),
+    );
+  }
+
   return injectedParts;
 }
 
@@ -131,6 +151,72 @@ export async function injectSessionReferenceContext({
   return injectedParts.length;
 }
 
+export async function buildSessionReferenceFeedback({
+  client,
+  parts,
+}: SessionReferenceInjectorParams): Promise<Part[]> {
+  const parsed = parseSessionReferences(parts);
+  if (parsed.entries.length === 0) {
+    return [];
+  }
+
+  const successItems: Array<{ displayID: string; title: string }> = [];
+  const errorItems: Array<{ displayID: string; reason: string }> = [];
+
+  for (const entry of parsed.entries) {
+    if ("reason" in entry) {
+      const displayID = entry.source.slice(2);
+      errorItems.push({ displayID, reason: "requires complete session-id" });
+    } else {
+      const { data: session } = await client.session.get({
+        sessionID: entry.sessionID,
+      });
+      if (!session) {
+        errorItems.push({
+          displayID: entry.sessionID,
+          reason: "session not found",
+        });
+      } else {
+        let title: string = session.title ?? "";
+        if (title.length > 80) {
+          title = title.slice(0, 80) + "…";
+        }
+        successItems.push({ displayID: entry.sessionID, title });
+      }
+    }
+  }
+
+  const lines: string[] = [];
+  lines.push("[Session Reference]");
+
+  if (successItems.length === 1 && errorItems.length === 0) {
+    const item = successItems[0]!;
+    lines.push(`Loaded ${item.displayID}: "${item.title}"`);
+  } else {
+    const headerParts: string[] = [];
+    if (successItems.length > 0) {
+      headerParts.push(`${successItems.length} loaded`);
+    }
+    if (errorItems.length > 0) {
+      const errorLabel =
+        errorItems.length === 1 ? "1 error" : `${errorItems.length} errors`;
+      headerParts.push(errorLabel);
+    }
+    lines.push(`${headerParts.join(", ")}:`);
+
+    for (const item of successItems) {
+      lines.push(`  ${item.displayID}: "${item.title}"`);
+    }
+    for (const item of errorItems) {
+      lines.push(`  ${item.displayID}: ${item.reason}`);
+    }
+  }
+
+  lines.push("[/Session Reference]");
+
+  return [{ type: "text", text: lines.join("\n") } as Part];
+}
+
 function renderInvalidReferenceBlock(
   reference: InvalidSessionReference,
 ): string {
@@ -154,7 +240,7 @@ function createSyntheticTextPart(
   } as unknown as Part;
 }
 
-function toPromptTextPart(part: Part): TextPartInput {
+export function toPromptTextPart(part: Part): TextPartInput {
   if (part.type !== "text") {
     throw new TypeError(`Expected injected text part, received ${part.type}.`);
   }

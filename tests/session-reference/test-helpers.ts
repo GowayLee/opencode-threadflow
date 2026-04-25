@@ -40,6 +40,7 @@ export function createSampleClient(samples: SampleSession[]) {
       messages: async ({ sessionID }: { sessionID: string }) => ({
         data: sessions.get(sessionID)?.messages ?? [],
       }),
+      prompt: async () => ({ data: null }),
     },
     experimental: {
       session: {
