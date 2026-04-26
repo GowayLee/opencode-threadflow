@@ -3,7 +3,7 @@ import { describe, test } from "node:test";
 import {
   buildSessionSearchCommandParts,
   searchSessions,
-} from "../../src/session-reference/search.ts";
+} from "../../src/session-reference/search/index.ts";
 import { ROOT, textPart } from "./test-helpers.ts";
 
 describe("session-reference/search", () => {
