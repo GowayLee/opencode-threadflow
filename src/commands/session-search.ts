@@ -1,4 +1,4 @@
-export const SESSION_SEARCH_COMMAND_NAME = "session-search";
+export const SEARCH_SESSION_COMMAND_NAME = "search-session";
 
 export const sessionSearchCommand = {
   description:

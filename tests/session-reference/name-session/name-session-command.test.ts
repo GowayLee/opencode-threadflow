@@ -6,7 +6,7 @@ import {
 } from "../../../src/commands/name-session.ts";
 import { commands } from "../../../src/commands/index.ts";
 import { HANDOFF_COMMAND_NAME } from "../../../src/commands/handoff.ts";
-import { SESSION_SEARCH_COMMAND_NAME } from "../../../src/commands/session-search.ts";
+import { SEARCH_SESSION_COMMAND_NAME } from "../../../src/commands/session-search.ts";
 import {
   createNameSessionTool,
   NAME_SESSION_TOOL_NAME,
@@ -77,8 +77,8 @@ describe("session-reference/name-session-command", () => {
     assert.ok(commands[HANDOFF_COMMAND_NAME]);
   });
 
-  test("session-search command is still registered", () => {
-    assert.ok(commands[SESSION_SEARCH_COMMAND_NAME]);
+  test("search-session command is still registered", () => {
+    assert.ok(commands[SEARCH_SESSION_COMMAND_NAME]);
   });
 
   test("tool name is name_session", () => {
@@ -259,7 +259,7 @@ describe("session-reference/name-session-plugin-registration", () => {
     assert.ok(plugin["command.execute.before"]);
   });
 
-  test("session-search command is not affected by name-session hook", async () => {
+  test("search-session command is not affected by name-session hook", async () => {
     const plugin = await ThreadflowPlugin({
       client: {} as never,
       project: { id: "test", name: "test", directory: "/test" } as never,
@@ -275,7 +275,7 @@ describe("session-reference/name-session-plugin-registration", () => {
     try {
       await plugin["command.execute.before"]!(
         {
-          command: SESSION_SEARCH_COMMAND_NAME,
+          command: SEARCH_SESSION_COMMAND_NAME,
           sessionID: "ses_test123",
           arguments: "query",
           messageID: "msg_001",

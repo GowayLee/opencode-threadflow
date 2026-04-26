@@ -139,7 +139,7 @@ export async function buildSessionSearchCommandParts(
         [
           "## Session Search Results",
           "",
-          "Usage: `/session-search <keyword>`",
+          "Usage: `/search-session <keyword>`",
         ].join("\n"),
       ),
     ];

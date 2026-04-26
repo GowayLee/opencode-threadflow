@@ -4,7 +4,7 @@ import { createOpencodeClient } from "@opencode-ai/sdk/v2";
 import { commands } from "./commands/index";
 import { HANDOFF_COMMAND_NAME } from "./commands/handoff";
 import { NAME_SESSION_COMMAND_NAME } from "./commands/name-session";
-import { SESSION_SEARCH_COMMAND_NAME } from "./commands/session-search";
+import { SEARCH_SESSION_COMMAND_NAME } from "./commands/session-search";
 import {
   createFindSessionTool,
   FIND_SESSION_TOOL_NAME,
@@ -90,7 +90,7 @@ export const ThreadflowPlugin: Plugin = async (input) => {
         return;
       }
 
-      if (command.command !== SESSION_SEARCH_COMMAND_NAME) {
+      if (command.command !== SEARCH_SESSION_COMMAND_NAME) {
         return;
       }
 

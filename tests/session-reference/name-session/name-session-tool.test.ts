@@ -131,7 +131,7 @@ describe("session-reference/name-session-tool", () => {
     assert.match(result, /old title/);
     assert.match(result, /better title.*未应用/);
     assert.match(result, /Network error/);
-    assert.match(result, /请检查权限和网络状态后重试/);
+    assert.match(result, /请检查权限后重试/);
     assert.deepEqual(metadataCalls, []);
   });
 
