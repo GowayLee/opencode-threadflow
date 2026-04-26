@@ -4,6 +4,7 @@ import { createFindSessionTool } from "../../src/session-reference/find-session-
 import { ROOT, textPart } from "./test-helpers.ts";
 
 type ToolDefinition = {
+  description?: string;
   execute: (
     args: { query: string },
     context?: { metadata: (value: unknown) => void },
@@ -11,6 +12,30 @@ type ToolDefinition = {
 };
 
 describe("session-reference/find-session-tool", () => {
+  test("describes read_session preview and full follow-up inspection", () => {
+    const toolDefinition = createFindSessionTool({
+      client: {
+        experimental: {
+          session: {
+            list: async () => ({ data: [] }),
+          },
+        },
+        session: {
+          messages: async () => ({ data: [] }),
+        },
+      } as never,
+      directory: ROOT,
+    }) as unknown as ToolDefinition;
+
+    assert.match(toolDefinition.description ?? "", /read_session/);
+    assert.match(toolDefinition.description ?? "", /mode "preview"/);
+    assert.match(toolDefinition.description ?? "", /mode "full"/);
+    assert.match(
+      toolDefinition.description ?? "",
+      /complete returned session ID/,
+    );
+  });
+
   test("returns an explanatory result for blank queries without searching", async () => {
     let listCalls = 0;
     const toolDefinition = createFindSessionTool({
@@ -107,6 +132,10 @@ describe("session-reference/find-session-tool", () => {
       /\| `ses_transcript01` \| Another unrelated title \| .* \| transcript \|/,
     );
     assert.match(result, /call `read_session` with the complete Session ID/);
+    assert.match(result, /`mode: "preview"`/);
+    assert.match(result, /`mode: "full"`/);
+    assert.match(result, /trimmed message preview/);
+    assert.match(result, /complete context pack/);
     assert.doesNotMatch(result, /# Session Context Pack/);
     assert.doesNotMatch(result, /full transcript sample text/);
     assert.deepEqual(metadataCalls, []);
@@ -203,6 +232,8 @@ describe("session-reference/find-session-tool", () => {
     assert.match(result, /`ses_multi_tool_title`/);
     assert.match(result, /`ses_multi_tool_transcript`/);
     assert.match(result, /call `read_session` with the complete Session ID/);
+    assert.match(result, /`mode: "preview"`/);
+    assert.match(result, /`mode: "full"`/);
     assert.doesNotMatch(result, /# Session Context Pack/);
     assert.doesNotMatch(result, /planning details should remain hidden/);
     assert.deepEqual(metadataCalls, []);

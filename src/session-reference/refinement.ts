@@ -131,6 +131,22 @@ type CompressedTurn = {
   markers: string[];
 };
 
+type PreviewMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
+
+type PreviewTurn = {
+  turnID: string;
+  originalIndex: number;
+  messages: PreviewMessage[];
+};
+
+type PreviewSelection = {
+  effectiveTurns: PreviewTurn[];
+  selectedTurns: PreviewTurn[];
+};
+
 type ActivityIndex = {
   filesRead: string[];
   filesPatched: string[];
@@ -191,6 +207,45 @@ export async function buildSessionContextPack({
     compressedTurns: reduction.compressedTurns,
     activitySummary: activityIndex,
     compressedContent: reduction.compressedContent,
+  });
+}
+
+export async function buildSessionPreviewPack({
+  client,
+  directory,
+  sessionID,
+}: BuildContextPackParams): Promise<string | null> {
+  const [sessionResponse, messagesResponse] = await Promise.all([
+    client.session.get({
+      directory,
+      sessionID,
+    }),
+    client.session.messages({
+      directory,
+      sessionID,
+    }),
+  ]);
+
+  const session = sessionResponse.data;
+  if (!session) {
+    return null;
+  }
+
+  const normalized = normalizeTranscript({
+    session: {
+      id: session.id,
+      title: session.title,
+      updatedAt: session.time.updated,
+    },
+    messages: messagesResponse.data ?? [],
+  });
+  const assembledTurns = assembleTurns(normalized.messages);
+  const previewSelection = selectPreviewTurns(assembledTurns);
+
+  return renderPreviewPack({
+    session: normalized.session,
+    effectiveTurns: previewSelection.effectiveTurns,
+    selectedTurns: previewSelection.selectedTurns,
   });
 }
 
@@ -439,6 +494,151 @@ export function renderContextPack(input: {
   }
 
   return lines.join("\n");
+}
+
+function selectPreviewTurns(turns: AssembledTurn[]): PreviewSelection {
+  const effectiveTurns = turns
+    .map((turn, index): PreviewTurn | null => {
+      const messages = extractPreviewMessages(turn);
+      if (messages.length === 0) {
+        return null;
+      }
+
+      return {
+        turnID: `T${index + 1}`,
+        originalIndex: index,
+        messages,
+      };
+    })
+    .filter((turn): turn is PreviewTurn => turn !== null);
+
+  const selectedIndexes = new Set<number>();
+  for (const turn of effectiveTurns.slice(0, 2)) {
+    selectedIndexes.add(turn.originalIndex);
+  }
+  for (const turn of effectiveTurns.slice(-3)) {
+    selectedIndexes.add(turn.originalIndex);
+  }
+
+  return {
+    effectiveTurns,
+    selectedTurns: effectiveTurns.filter((turn) =>
+      selectedIndexes.has(turn.originalIndex),
+    ),
+  };
+}
+
+function extractPreviewMessages(turn: AssembledTurn): PreviewMessage[] {
+  return [
+    ...extractPreviewMessagesFromParts("user", turn.userParts),
+    ...turn.assistantMessages.flatMap((message) =>
+      extractPreviewMessagesFromParts("assistant", message.parts),
+    ),
+  ];
+}
+
+function extractPreviewMessagesFromParts(
+  role: "user" | "assistant",
+  parts: NormalizedPart[],
+): PreviewMessage[] {
+  const messages: PreviewMessage[] = [];
+
+  for (const part of parts) {
+    if (part.type !== "text" || part.synthetic || part.ignored) {
+      continue;
+    }
+
+    const content = normalizeInlineText(part.text);
+    if (!content) {
+      continue;
+    }
+
+    messages.push({ role, content });
+  }
+
+  return messages;
+}
+
+function renderPreviewPack(input: {
+  session: SessionMetadata;
+  effectiveTurns: PreviewTurn[];
+  selectedTurns: PreviewTurn[];
+}): string {
+  const lines = [
+    "# Session Context Preview",
+    "",
+    "## Session",
+    `- Title: ${formatTitle(input.session.title)}`,
+    `- Session ID: ${input.session.id}`,
+    `- Updated At: ${new Date(input.session.updatedAt).toISOString()}`,
+    "",
+    "## Transcript Preview",
+    "",
+  ];
+
+  if (input.selectedTurns.length === 0) {
+    lines.push("[no previewable user/assistant message turns]", "");
+  }
+
+  for (let index = 0; index < input.selectedTurns.length; index += 1) {
+    const previousTurn = input.selectedTurns[index - 1];
+    const currentTurn = input.selectedTurns[index];
+    if (!currentTurn) {
+      continue;
+    }
+
+    if (previousTurn) {
+      const omittedCount = countOmittedEffectiveTurnsBetween({
+        effectiveTurns: input.effectiveTurns,
+        startIndex: previousTurn.originalIndex,
+        endIndex: currentTurn.originalIndex,
+      });
+
+      if (omittedCount > 0) {
+        lines.push(
+          `... [${omittedCount} middle turn${pluralize(omittedCount)} omitted in preview] ...`,
+          "",
+        );
+      }
+    }
+
+    lines.push(`### Turn ${currentTurn.turnID}`);
+    for (const message of currentTurn.messages) {
+      lines.push(...renderPreviewMessage(message));
+    }
+    lines.push("");
+  }
+
+  lines.push(
+    "## Preview Notice",
+    "",
+    "- This is a trimmed preview containing only selected user/assistant messages.",
+    `- Use read_session with mode "full" and the same complete session ID (${input.session.id}) for complete context.`,
+  );
+
+  return lines.join("\n");
+}
+
+function countOmittedEffectiveTurnsBetween(input: {
+  effectiveTurns: PreviewTurn[];
+  startIndex: number;
+  endIndex: number;
+}): number {
+  return input.effectiveTurns.filter(
+    (turn) =>
+      turn.originalIndex > input.startIndex &&
+      turn.originalIndex < input.endIndex,
+  ).length;
+}
+
+function renderPreviewMessage(message: PreviewMessage): string[] {
+  const label = capitalize(message.role);
+
+  if (message.content.includes("\n")) {
+    return [`- ${label}:`, ...indentLines(message.content.split("\n"), 1)];
+  }
+
+  return [`- ${label}: ${message.content}`];
 }
 
 function normalizePart(part: Part): NormalizedPart {

@@ -15,7 +15,7 @@ export function createFindSessionTool({
 }: FindSessionToolParams) {
   return tool({
     description:
-      "Search recent sessions by one keyword or multiple space-separated keywords and return candidate session IDs. Use read_session with a complete returned session ID to inspect a candidate.",
+      'Search recent sessions by one keyword or multiple space-separated keywords and return candidate session IDs. To inspect a candidate, call read_session with a complete returned session ID and mode "preview" for a trimmed message preview, then use mode "full" if the candidate is relevant.',
     args: {
       query: tool.schema
         .string()
@@ -85,7 +85,7 @@ function renderFindSessionResults(resultSet: SearchResultSet): string {
 
   lines.push(
     "",
-    "To inspect a candidate, call `read_session` with the complete Session ID.",
+    'To inspect a candidate, call `read_session` with the complete Session ID and `mode: "preview"` for a trimmed message preview; if relevant, call `read_session` again with `mode: "full"` for the complete context pack.',
   );
 
   return lines.join("\n");
