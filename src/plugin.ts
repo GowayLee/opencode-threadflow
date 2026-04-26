@@ -1,6 +1,8 @@
 import type { Plugin } from "@opencode-ai/plugin";
+import type { Part } from "@opencode-ai/sdk";
 import { createOpencodeClient } from "@opencode-ai/sdk/v2";
 import { commands } from "./commands/index";
+import { HANDOFF_COMMAND_NAME } from "./commands/handoff";
 import { SESSION_SEARCH_COMMAND_NAME } from "./commands/session-search";
 import {
   createReadSessionTool,
@@ -33,6 +35,21 @@ export const ThreadflowPlugin: Plugin = async (input) => {
       };
     },
     "command.execute.before": async (command, output) => {
+      if (command.command === HANDOFF_COMMAND_NAME) {
+        output.parts.push({
+          type: "text",
+          text: [
+            "---",
+            "§ included by opencode-threadflow plugin",
+            "",
+            `This session ID: \`${command.sessionID}\``,
+            "---",
+          ].join("\n"),
+          synthetic: true,
+        } as unknown as Part);
+        return;
+      }
+
       if (command.command !== SESSION_SEARCH_COMMAND_NAME) {
         return;
       }

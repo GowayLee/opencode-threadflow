@@ -34,15 +34,21 @@ Your job:
 Output constraints:
 - Output only the handoff draft itself.
 - Do not add commentary before or after the draft.
-- Do not mention read_session, sessionID, automatic file injection, automatic new-session creation, or automatic continuation.
 - Do not ask follow-up questions inside the draft.
 - The draft must remain user-editable and copyable as plain Markdown.
+
+Source session reference:
+- This session has an ID (prefixed with \`ses_\`, provided in your command context).
+- At the top of your draft, include the actual session ID and note that the next agent can call \`read_session\` to get full context on demand.
+- The receiving agent should use the draft summary first, and only fall back to \`read_session\` for details not covered in the draft.
 
 ---
 
 Use this exact structure:
 
 ## Handoff Draft
+
+> **源 session**: \`<session ID>\` — 如需更多上下文，可调用 \`read_session\` 工具查看完整记录
 
 ### 当前任务背景
 - Describe only the active work, current state, and why it matters for resuming execution.
