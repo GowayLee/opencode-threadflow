@@ -3,11 +3,16 @@ import type { Part } from "@opencode-ai/sdk";
 import { createOpencodeClient } from "@opencode-ai/sdk/v2";
 import { commands } from "./commands/index";
 import { HANDOFF_COMMAND_NAME } from "./commands/handoff";
+import { NAME_SESSION_COMMAND_NAME } from "./commands/name-session";
 import { SESSION_SEARCH_COMMAND_NAME } from "./commands/session-search";
 import {
   createFindSessionTool,
   FIND_SESSION_TOOL_NAME,
 } from "./session-reference/find-session-tool";
+import {
+  createNameSessionTool,
+  NAME_SESSION_TOOL_NAME,
+} from "./session-reference/name-session-tool";
 import {
   createReadSessionTool,
   READ_SESSION_TOOL_NAME,
@@ -31,6 +36,10 @@ export const ThreadflowPlugin: Plugin = async (input) => {
         client: sessionClient,
         directory: input.directory,
       }),
+      [NAME_SESSION_TOOL_NAME]: createNameSessionTool({
+        client: sessionClient,
+        directory: input.directory,
+      }),
     },
     config: async (config) => {
       config.command = {
@@ -41,9 +50,31 @@ export const ThreadflowPlugin: Plugin = async (input) => {
         ...(config.tools ?? {}),
         [READ_SESSION_TOOL_NAME]: true,
         [FIND_SESSION_TOOL_NAME]: true,
+        [NAME_SESSION_TOOL_NAME]: true,
       };
     },
     "command.execute.before": async (command, output) => {
+      if (command.command === NAME_SESSION_COMMAND_NAME) {
+        const sessionResult = await sessionClient.session.get({
+          directory: input.directory,
+          sessionID: command.sessionID,
+        });
+        const currentTitle = sessionResult.data?.title ?? "（未获取到标题）";
+        output.parts.push({
+          type: "text",
+          text: [
+            "---",
+            "§ included by opencode-threadflow plugin",
+            "",
+            `当前 session ID: \`${command.sessionID}\``,
+            `当前 session 标题: ${currentTitle}`,
+            "---",
+          ].join("\n"),
+          synthetic: true,
+        } as unknown as Part);
+        return;
+      }
+
       if (command.command === HANDOFF_COMMAND_NAME) {
         output.parts.push({
           type: "text",
