@@ -43,6 +43,17 @@ describe("session-reference/search", () => {
     assert.equal(results.scanned, 200);
     assert.equal(results.results.length, 10);
     assert.ok(results.results.every((item) => item.match === "title"));
+
+    const commandParts = await buildSessionSearchCommandParts({
+      client: client as never,
+      directory: ROOT,
+      query: "alpha",
+    });
+    const commandText = (commandParts[0] as { text?: string }).text ?? "";
+
+    assert.match(commandText, /Results: 10\/10/);
+    assert.match(commandText, /`ses_search009`/);
+    assert.doesNotMatch(commandText, /`ses_search010`/);
   });
 
   test("falls back to transcript samples and renders command output", async () => {

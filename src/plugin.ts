@@ -5,6 +5,10 @@ import { commands } from "./commands/index";
 import { HANDOFF_COMMAND_NAME } from "./commands/handoff";
 import { SESSION_SEARCH_COMMAND_NAME } from "./commands/session-search";
 import {
+  createFindSessionTool,
+  FIND_SESSION_TOOL_NAME,
+} from "./session-reference/find-session-tool";
+import {
   createReadSessionTool,
   READ_SESSION_TOOL_NAME,
 } from "./session-reference/read-session-tool";
@@ -23,6 +27,10 @@ export const ThreadflowPlugin: Plugin = async (input) => {
         client: sessionClient,
         directory: input.directory,
       }),
+      [FIND_SESSION_TOOL_NAME]: createFindSessionTool({
+        client: sessionClient,
+        directory: input.directory,
+      }),
     },
     config: async (config) => {
       config.command = {
@@ -32,6 +40,7 @@ export const ThreadflowPlugin: Plugin = async (input) => {
       config.tools = {
         ...(config.tools ?? {}),
         [READ_SESSION_TOOL_NAME]: true,
+        [FIND_SESSION_TOOL_NAME]: true,
       };
     },
     "command.execute.before": async (command, output) => {

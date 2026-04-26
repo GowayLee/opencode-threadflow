@@ -10,20 +10,20 @@ const DEFAULT_RESULT_LIMIT = 10;
 const DEFAULT_TRANSCRIPT_SAMPLE_LIMIT = 8;
 const UNTITLED_LABEL = "[untitled]";
 
-type SearchMatchBucket = "title" | "slug-or-id" | "transcript";
+export type SearchMatchBucket = "title" | "slug-or-id" | "transcript";
 
 type SessionMessageLike = {
   parts: SessionPart[];
 };
 
-type SearchResult = {
+export type SearchResult = {
   sessionID: string;
   label: string;
   updatedAt: number;
   match: SearchMatchBucket;
 };
 
-type SearchResultSet = {
+export type SearchResultSet = {
   query: string;
   scanned: number;
   results: SearchResult[];
@@ -33,14 +33,17 @@ type SearchParams = {
   client: OpencodeClient;
   directory: string;
   query: string;
+  resultLimit?: number;
 };
 
 export async function searchSessions({
   client,
   directory,
   query,
+  resultLimit = DEFAULT_RESULT_LIMIT,
 }: SearchParams): Promise<SearchResultSet> {
   const normalizedQuery = normalizeQuery(query);
+  const effectiveResultLimit = normalizeResultLimit(resultLimit);
   if (!normalizedQuery)
     return {
       query: "",
@@ -81,14 +84,14 @@ export async function searchSessions({
 
   const results = [...titleMatches, ...slugOrIDMatches];
 
-  if (results.length < DEFAULT_RESULT_LIMIT) {
+  if (results.length < effectiveResultLimit) {
     const transcriptMatches = await collectTranscriptMatches({
       client,
       directory,
       sessions: fallbackCandidates,
       query: normalizedQuery,
       exclude: matchedSessionIDs,
-      remaining: DEFAULT_RESULT_LIMIT - results.length,
+      remaining: effectiveResultLimit - results.length,
     });
 
     results.push(...transcriptMatches);
@@ -97,7 +100,7 @@ export async function searchSessions({
   return {
     query,
     scanned: sessions.length,
-    results: results.slice(0, DEFAULT_RESULT_LIMIT),
+    results: results.slice(0, effectiveResultLimit),
   };
 }
 
@@ -293,6 +296,14 @@ function compareUpdatedAt(left: number, right: number): number {
 
 function normalizeQuery(value: string): string {
   return value.trim().toLocaleLowerCase();
+}
+
+function normalizeResultLimit(limit: number): number {
+  if (!Number.isFinite(limit)) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  return Math.max(0, Math.trunc(limit));
 }
 
 function formatTimestamp(timestamp: number): string {
