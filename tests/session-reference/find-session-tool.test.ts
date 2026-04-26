@@ -145,6 +145,70 @@ describe("session-reference/find-session-tool", () => {
     assert.doesNotMatch(result, /call `read_session`/);
   });
 
+  test("handles multi-keyword queries without returning context packs or metadata", async () => {
+    let getCalls = 0;
+    const metadataCalls: unknown[] = [];
+    const toolDefinition = createFindSessionTool({
+      client: {
+        experimental: {
+          session: {
+            list: async () => ({
+              data: [
+                {
+                  id: "ses_multi_tool_title",
+                  title: "Needle implementation notes",
+                  slug: "implementation-notes",
+                  time: { updated: 20, archived: 0 },
+                },
+                {
+                  id: "ses_multi_tool_transcript",
+                  title: "Different title",
+                  slug: "different-title",
+                  time: { updated: 10, archived: 0 },
+                },
+              ],
+            }),
+          },
+        },
+        session: {
+          get: async () => {
+            getCalls += 1;
+            return { data: null };
+          },
+          messages: async ({ sessionID }: { sessionID: string }) => ({
+            data:
+              sessionID === "ses_multi_tool_transcript"
+                ? [
+                    {
+                      parts: [
+                        textPart(
+                          "planning details should remain hidden in tool output",
+                        ) as never,
+                      ],
+                    },
+                  ]
+                : [{ parts: [textPart("nothing useful") as never] }],
+          }),
+        },
+      } as never,
+      directory: ROOT,
+    }) as unknown as ToolDefinition;
+
+    const result = await toolDefinition.execute(
+      { query: "needle planning" },
+      { metadata: (value) => metadataCalls.push(value) },
+    );
+
+    assert.match(result, /Query: `needle planning`/);
+    assert.match(result, /`ses_multi_tool_title`/);
+    assert.match(result, /`ses_multi_tool_transcript`/);
+    assert.match(result, /call `read_session` with the complete Session ID/);
+    assert.doesNotMatch(result, /# Session Context Pack/);
+    assert.doesNotMatch(result, /planning details should remain hidden/);
+    assert.deepEqual(metadataCalls, []);
+    assert.equal(getCalls, 0);
+  });
+
   test("returns every match in the current search window instead of ten results", async () => {
     const sessions = Array.from({ length: 12 }, (_, index) => ({
       id: `ses_many${String(index).padStart(2, "0")}`,

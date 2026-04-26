@@ -15,12 +15,14 @@ export function createFindSessionTool({
 }: FindSessionToolParams) {
   return tool({
     description:
-      "Search recent sessions by keyword and return candidate session IDs. Use read_session with a complete returned session ID to inspect a candidate.",
+      "Search recent sessions by one keyword or multiple space-separated keywords and return candidate session IDs. Use read_session with a complete returned session ID to inspect a candidate.",
     args: {
       query: tool.schema
         .string()
         .min(1)
-        .describe("Keyword to search for in recent sessions"),
+        .describe(
+          "Keyword query for recent sessions. Use spaces to combine separate clues, for example: `todo openspec implementation`.",
+        ),
     },
     execute: async ({ query }) => {
       const normalizedQuery = query.trim();

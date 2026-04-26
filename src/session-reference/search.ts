@@ -21,6 +21,8 @@ export type SearchResult = {
   label: string;
   updatedAt: number;
   match: SearchMatchBucket;
+  phraseMatched: boolean;
+  matchedTermCount: number;
 };
 
 export type SearchResultSet = {
@@ -36,15 +38,26 @@ type SearchParams = {
   resultLimit?: number;
 };
 
+type ParsedSearchQuery = {
+  phrase: string;
+  terms: string[];
+};
+
+type MatchAnalysis = {
+  phraseMatched: boolean;
+  matchedTerms: string[];
+  score: number;
+};
+
 export async function searchSessions({
   client,
   directory,
   query,
   resultLimit = DEFAULT_RESULT_LIMIT,
 }: SearchParams): Promise<SearchResultSet> {
-  const normalizedQuery = normalizeQuery(query);
+  const parsedQuery = parseSearchQuery(query);
   const effectiveResultLimit = normalizeResultLimit(resultLimit);
-  if (!normalizedQuery)
+  if (!parsedQuery)
     return {
       query: "",
       scanned: DEFAULT_SCAN_LIMIT,
@@ -66,15 +79,27 @@ export async function searchSessions({
   for (const session of sessions) {
     if (session.time.archived) continue;
 
-    const bucket = getMetadataMatchBucket(session, normalizedQuery);
-    if (bucket === "title") {
-      titleMatches.push(buildSearchResult(session, bucket));
+    const metadataMatch = getMetadataMatch(session, parsedQuery);
+    if (metadataMatch?.bucket === "title") {
+      titleMatches.push(
+        buildSearchResult(
+          session,
+          metadataMatch.bucket,
+          metadataMatch.analysis,
+        ),
+      );
       matchedSessionIDs.add(session.id);
       continue;
     }
 
-    if (bucket === "slug-or-id") {
-      slugOrIDMatches.push(buildSearchResult(session, bucket));
+    if (metadataMatch?.bucket === "slug-or-id") {
+      slugOrIDMatches.push(
+        buildSearchResult(
+          session,
+          metadataMatch.bucket,
+          metadataMatch.analysis,
+        ),
+      );
       matchedSessionIDs.add(session.id);
       continue;
     }
@@ -89,7 +114,7 @@ export async function searchSessions({
       client,
       directory,
       sessions: fallbackCandidates,
-      query: normalizedQuery,
+      query: parsedQuery,
       exclude: matchedSessionIDs,
       remaining: effectiveResultLimit - results.length,
     });
@@ -100,7 +125,7 @@ export async function searchSessions({
   return {
     query,
     scanned: sessions.length,
-    results: results.slice(0, effectiveResultLimit),
+    results: results.sort(compareSearchResults).slice(0, effectiveResultLimit),
   };
 }
 
@@ -144,7 +169,7 @@ async function collectTranscriptMatches({
   client: OpencodeClient;
   directory: string;
   sessions: GlobalSession[];
-  query: string;
+  query: ParsedSearchQuery;
   exclude: Set<string>;
   remaining: number;
 }): Promise<SearchResult[]> {
@@ -165,8 +190,9 @@ async function collectTranscriptMatches({
       limit: DEFAULT_TRANSCRIPT_SAMPLE_LIMIT,
     });
 
-    if (transcriptMatchesQuery(messagesResponse.data ?? [], query)) {
-      matches.push(buildSearchResult(session, "transcript"));
+    const analysis = analyzeTranscriptMatch(messagesResponse.data ?? [], query);
+    if (analysis) {
+      matches.push(buildSearchResult(session, "transcript", analysis));
       exclude.add(session.id);
     }
   }
@@ -174,19 +200,14 @@ async function collectTranscriptMatches({
   return matches.sort(compareSearchResults);
 }
 
-function transcriptMatchesQuery(
+function analyzeTranscriptMatch(
   messages: SessionMessageLike[],
-  query: string,
-): boolean {
+  query: ParsedSearchQuery,
+): MatchAnalysis | null {
   const normalizedMessages = messages.slice(-DEFAULT_TRANSCRIPT_SAMPLE_LIMIT);
+  const sampleText = normalizedMessages.map(extractMessageText).join("\n");
 
-  for (const message of normalizedMessages) {
-    if (normalizeQuery(extractMessageText(message)).includes(query)) {
-      return true;
-    }
-  }
-
-  return false;
+  return analyzeTextMatch(sampleText, query);
 }
 
 function extractMessageText(message: SessionMessageLike): string {
@@ -200,34 +221,93 @@ function extractMessageText(message: SessionMessageLike): string {
     .join("\n");
 }
 
-function getMetadataMatchBucket(
+function getMetadataMatch(
   session: GlobalSession,
-  query: string,
-): SearchMatchBucket | null {
-  const title = normalizeQuery(session.title);
-  if (title.includes(query)) {
-    return "title";
+  query: ParsedSearchQuery,
+): { bucket: SearchMatchBucket; analysis: MatchAnalysis } | null {
+  const titleMatch = analyzeTextMatch(session.title, query);
+  if (titleMatch) {
+    return { bucket: "title", analysis: titleMatch };
   }
 
-  const slug = normalizeQuery(session.slug);
-  const sessionID = normalizeQuery(session.id);
+  const slugOrIDMatch = mergeMatchAnalyses([
+    analyzeTextMatch(session.slug, query),
+    analyzeTextMatch(session.id, query),
+  ]);
 
-  if (slug.includes(query) || sessionID.includes(query)) {
-    return "slug-or-id";
+  if (slugOrIDMatch) {
+    return { bucket: "slug-or-id", analysis: slugOrIDMatch };
   }
 
   return null;
 }
 
+function analyzeTextMatch(
+  value: string,
+  query: ParsedSearchQuery,
+): MatchAnalysis | null {
+  const normalizedValue = normalizeQuery(value);
+  if (!normalizedValue) {
+    return null;
+  }
+
+  const phraseMatched = normalizedValue.includes(query.phrase);
+  const matchedTerms = query.terms.filter((term) =>
+    normalizedValue.includes(term),
+  );
+
+  if (!phraseMatched && matchedTerms.length === 0) {
+    return null;
+  }
+
+  return {
+    phraseMatched,
+    matchedTerms,
+    score: getMatchScore(phraseMatched, matchedTerms.length),
+  };
+}
+
+function mergeMatchAnalyses(
+  analyses: Array<MatchAnalysis | null>,
+): MatchAnalysis | null {
+  const matches = analyses.filter((analysis): analysis is MatchAnalysis =>
+    Boolean(analysis),
+  );
+  if (matches.length === 0) {
+    return null;
+  }
+
+  const matchedTerms = Array.from(
+    new Set(matches.flatMap((analysis) => analysis.matchedTerms)),
+  );
+  const phraseMatched = matches.some((analysis) => analysis.phraseMatched);
+
+  return {
+    phraseMatched,
+    matchedTerms,
+    score: getMatchScore(phraseMatched, matchedTerms.length),
+  };
+}
+
+function getMatchScore(
+  phraseMatched: boolean,
+  matchedTermCount: number,
+): number {
+  return (phraseMatched ? 1000 : 0) + matchedTermCount;
+}
+
 function buildSearchResult(
   session: GlobalSession,
   match: SearchMatchBucket,
+  analysis: MatchAnalysis,
 ): SearchResult {
   return {
     sessionID: session.id,
     label: getSessionLabel(session),
     updatedAt: session.time.updated,
     match,
+    phraseMatched: analysis.phraseMatched,
+    matchedTermCount: analysis.matchedTerms.length,
   };
 }
 
@@ -285,17 +365,54 @@ function compareSessions(a: GlobalSession, b: GlobalSession): number {
 
 function compareSearchResults(a: SearchResult, b: SearchResult): number {
   return (
+    compareMatchBucket(a.match, b.match) ||
+    compareBooleanTrueFirst(a.phraseMatched, b.phraseMatched) ||
+    b.matchedTermCount - a.matchedTermCount ||
     compareUpdatedAt(a.updatedAt, b.updatedAt) ||
     a.sessionID.localeCompare(b.sessionID)
   );
+}
+
+function compareMatchBucket(
+  left: SearchMatchBucket,
+  right: SearchMatchBucket,
+): number {
+  return getMatchBucketRank(left) - getMatchBucketRank(right);
+}
+
+function getMatchBucketRank(bucket: SearchMatchBucket): number {
+  switch (bucket) {
+    case "title":
+      return 0;
+    case "slug-or-id":
+      return 1;
+    case "transcript":
+      return 2;
+  }
+}
+
+function compareBooleanTrueFirst(left: boolean, right: boolean): number {
+  return Number(right) - Number(left);
 }
 
 function compareUpdatedAt(left: number, right: number): number {
   return right - left;
 }
 
+function parseSearchQuery(value: string): ParsedSearchQuery | null {
+  const phrase = normalizeQuery(value);
+  if (!phrase) {
+    return null;
+  }
+
+  return {
+    phrase,
+    terms: Array.from(new Set(phrase.split(" ").filter(Boolean))),
+  };
+}
+
 function normalizeQuery(value: string): string {
-  return value.trim().toLocaleLowerCase();
+  return value.trim().toLocaleLowerCase().replaceAll(/\s+/g, " ");
 }
 
 function normalizeResultLimit(limit: number): number {
