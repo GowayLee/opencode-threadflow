@@ -444,7 +444,7 @@ export function renderContextPack(input: {
     "# Session Context Pack",
     "",
     "## Session",
-    `- Title: ${formatTitle(session.title)}`,
+    `- Title: ${formatTitle(locale, session.title)}`,
     `- Updated At: ${new Date(session.updatedAt).toISOString()}`,
     "",
     "## Transcript",
@@ -463,17 +463,19 @@ export function renderContextPack(input: {
     }
 
     for (const entry of turn.userEntries) {
-      lines.push(...renderTranscriptEntry(entry));
+      lines.push(...renderTranscriptEntry(locale, entry));
     }
 
     for (const assistantMessage of turn.assistantMessages) {
       for (const entry of assistantMessage.entries) {
-        lines.push(...renderTranscriptEntry(entry));
+        lines.push(...renderTranscriptEntry(locale, entry));
       }
 
       if (assistantMessage.activity.length > 0) {
-        lines.push("- Assistant Activity:");
-        lines.push(...renderActivityRecords(assistantMessage.activity, 1));
+        lines.push(`- ${t(locale, "render.assistant_activity")}:`);
+        lines.push(
+          ...renderActivityRecords(locale, assistantMessage.activity, 1),
+        );
       }
 
       if (assistantMessage.markers.length > 0) {
@@ -498,7 +500,7 @@ export function renderContextPack(input: {
     lines.push(`- ${t(locale, "render.none")}`);
   } else {
     for (const item of compressedContent) {
-      lines.push(`- ${item}`);
+      lines.push(`- ${localizeRenderTokens(locale, item)}`);
     }
   }
 
@@ -579,7 +581,7 @@ function renderPreviewPack(input: {
     "# Session Context Preview",
     "",
     "## Session",
-    `- Title: ${formatTitle(input.session.title)}`,
+    `- Title: ${formatTitle(locale, input.session.title)}`,
     `- Session ID: ${input.session.id}`,
     `- Updated At: ${new Date(input.session.updatedAt).toISOString()}`,
     "",
@@ -618,7 +620,7 @@ function renderPreviewPack(input: {
 
     lines.push(`### Turn ${currentTurn.turnID}`);
     for (const message of currentTurn.messages) {
-      lines.push(...renderPreviewMessage(message));
+      lines.push(...renderPreviewMessage(locale, message));
     }
     lines.push("");
   }
@@ -647,8 +649,11 @@ function countOmittedEffectiveTurnsBetween(input: {
   ).length;
 }
 
-function renderPreviewMessage(message: PreviewMessage): string[] {
-  const label = capitalize(message.role);
+function renderPreviewMessage(
+  locale: Locale,
+  message: PreviewMessage,
+): string[] {
+  const label = t(locale, `render.role.${message.role}`);
 
   if (message.content.includes("\n")) {
     return [`- ${label}:`, ...indentLines(message.content.split("\n"), 1)];
@@ -1153,30 +1158,36 @@ function shouldIncludeTurn(turn: CompressedTurn): boolean {
   );
 }
 
-function renderTranscriptEntry(entry: TranscriptEntry): string[] {
-  const label = buildEntryLabel(entry);
+function renderTranscriptEntry(
+  locale: Locale,
+  entry: TranscriptEntry,
+): string[] {
+  const label = buildEntryLabel(locale, entry);
+  const content = localizeRenderTokens(locale, entry.content);
 
-  if (entry.preserveNewlines || entry.content.includes("\n")) {
-    return [`- ${label}:`, ...indentLines(entry.content.split("\n"), 1)];
+  if (entry.preserveNewlines || content.includes("\n")) {
+    return [`- ${label}:`, ...indentLines(content.split("\n"), 1)];
   }
 
-  return [`- ${label}: ${entry.content}`];
+  return [`- ${label}: ${content}`];
 }
 
 function renderActivityRecords(
+  locale: Locale,
   records: ActivityRecord[],
   indentLevel: number,
 ): string[] {
   const lines: string[] = [];
 
   for (const record of records) {
-    lines.push(...renderActivityRecord(record, indentLevel));
+    lines.push(...renderActivityRecord(locale, record, indentLevel));
   }
 
   return lines;
 }
 
 function renderActivityRecord(
+  locale: Locale,
   record: ActivityRecord,
   indentLevel: number,
 ): string[] {
@@ -1186,36 +1197,41 @@ function renderActivityRecord(
   switch (record.kind) {
     case "read":
       return [
-        `${prefix}- read ${record.files.length} file${pluralize(record.files.length)}:`,
+        `${prefix}- ${t(locale, "render.activity.read.summary", { count: String(record.files.length), plural: pluralize(record.files.length) })}`,
         ...record.files.map((file) => `${detailPrefix}- ${file}`),
       ];
     case "command":
       return [
-        `${prefix}- executed ${record.commands.length} command${pluralize(record.commands.length)}:`,
+        `${prefix}- ${t(locale, "render.activity.commands.summary", { count: String(record.commands.length), plural: pluralize(record.commands.length) })}`,
         ...record.commands.map((command) => `${detailPrefix}- ${command}`),
       ];
     case "patch":
       return [
-        `${prefix}- patched ${record.files.length} file${pluralize(record.files.length)}:`,
+        `${prefix}- ${t(locale, "render.activity.patches.summary", { count: String(record.files.length), plural: pluralize(record.files.length) })}`,
         ...record.files.map((file) => `${detailPrefix}- ${file}`),
       ];
     case "question": {
       if (record.answers.length > 0) {
         return [
-          `${prefix}- answered ${record.answers.length} question${pluralize(record.answers.length)}:`,
-          ...record.answers.map((answer) => `${detailPrefix}- ${answer}`),
+          `${prefix}- ${t(locale, "render.activity.questions.summary", { count: String(record.answers.length), plural: pluralize(record.answers.length) })}`,
+          ...record.answers.map(
+            (answer) =>
+              `${detailPrefix}- ${localizeRenderTokens(locale, answer)}`,
+          ),
         ];
       }
 
       const questionCount = record.questionCount ?? 0;
       return [
-        `${prefix}- answered ${questionCount} question${pluralize(questionCount)}`,
+        `${prefix}- ${t(locale, "render.activity.questions.summary", { count: String(questionCount), plural: pluralize(questionCount) }).replace(/:$/, "")}`,
       ];
     }
     case "subtask":
       return [
-        `${prefix}- started ${record.items.length} subtask${pluralize(record.items.length)}:`,
-        ...record.items.map((item) => `${detailPrefix}- ${item}`),
+        `${prefix}- ${t(locale, "render.activity.subtasks.summary", { count: String(record.items.length), plural: pluralize(record.items.length) })}`,
+        ...record.items.map(
+          (item) => `${detailPrefix}- ${localizeRenderTokens(locale, item)}`,
+        ),
       ];
   }
 }
@@ -1226,33 +1242,39 @@ function renderActivitySections(
 ): string[] {
   const lines: string[] = [];
 
-  appendActivitySection(lines, "Read", "read", "file", activityIndex.filesRead);
   appendActivitySection(
+    locale,
     lines,
-    "Commands",
-    "executed",
-    "command",
+    "render.activity.read.title",
+    "render.activity.read.summary",
+    activityIndex.filesRead,
+  );
+  appendActivitySection(
+    locale,
+    lines,
+    "render.activity.commands.title",
+    "render.activity.commands.summary",
     activityIndex.commands,
   );
   appendActivitySection(
+    locale,
     lines,
-    "Patches",
-    "patched",
-    "file",
+    "render.activity.patches.title",
+    "render.activity.patches.summary",
     activityIndex.filesPatched,
   );
   appendActivitySection(
+    locale,
     lines,
-    "Questions",
-    "answered",
-    "question",
+    "render.activity.questions.title",
+    "render.activity.questions.summary",
     activityIndex.questionsAnswered,
   );
   appendActivitySection(
+    locale,
     lines,
-    "Subtasks",
-    "started",
-    "subtask",
+    "render.activity.subtasks.title",
+    "render.activity.subtasks.summary",
     activityIndex.subtasks,
   );
 
@@ -1260,36 +1282,42 @@ function renderActivitySections(
 }
 
 function appendActivitySection(
+  locale: Locale,
   lines: string[],
-  title: string,
-  verb: string,
-  noun: string,
+  titleKey: Parameters<typeof t>[1],
+  summaryKey: Parameters<typeof t>[1],
   items: string[],
 ): void {
   if (items.length === 0) {
     return;
   }
 
-  lines.push(`### ${title}`);
-  lines.push(`- ${verb} ${items.length} ${noun}${pluralize(items.length)}:`);
+  lines.push(`### ${t(locale, titleKey)}`);
+  lines.push(
+    `- ${t(locale, summaryKey, {
+      count: String(items.length),
+      plural: pluralize(items.length),
+    })}`,
+  );
   for (const item of items) {
-    lines.push(`  - ${item}`);
+    lines.push(`  - ${localizeRenderTokens(locale, item)}`);
   }
   lines.push("");
 }
 
-function buildEntryLabel(entry: TranscriptEntry): string {
+function buildEntryLabel(locale: Locale, entry: TranscriptEntry): string {
+  const roleLabel = t(locale, `render.role.${entry.role}`);
   const base =
     entry.kind === "file-context"
-      ? `${capitalize(entry.role)} File Context`
-      : capitalize(entry.role);
+      ? `${roleLabel} ${t(locale, "render.file_context")}`
+      : roleLabel;
   const qualifiers: string[] = [];
 
   if (entry.synthetic) {
-    qualifiers.push("synthetic");
+    qualifiers.push(t(locale, "render.qualifier.synthetic"));
   }
   if (entry.truncated) {
-    qualifiers.push("truncated");
+    qualifiers.push(t(locale, "render.qualifier.truncated"));
   }
 
   if (qualifiers.length === 0) {
@@ -1375,6 +1403,33 @@ function pluralize(count: number): string {
   return count === 1 ? "" : "s";
 }
 
+function localizeRenderTokens(locale: Locale, value: string): string {
+  return value
+    .replaceAll(
+      "[missing user message]",
+      t(locale, "render.missing_user_message"),
+    )
+    .replaceAll("[reasoning omitted]", t(locale, "render.reasoning_omitted"))
+    .replaceAll(
+      "[repeated file read omitted]",
+      t(locale, "render.repeated_file_read_omitted"),
+    )
+    .replaceAll(
+      "[tool output truncated]",
+      t(locale, "render.tool_output_truncated"),
+    )
+    .replaceAll(
+      "[file content truncated]",
+      t(locale, "render.file_content_truncated"),
+    )
+    .replaceAll(
+      "[synthetic content truncated]",
+      t(locale, "render.synthetic_content_truncated"),
+    )
+    .replaceAll("[unknown subtask]", t(locale, "render.unknown_subtask"))
+    .replaceAll("[unknown]", t(locale, "render.unknown"));
+}
+
 function looksLikeFileContext(text: string): boolean {
   return (
     text.includes("<path>") &&
@@ -1407,9 +1462,9 @@ function getAnswers(value: unknown): string[] {
   return value.filter((item): item is string => typeof item === "string");
 }
 
-function formatTitle(value: string): string {
+function formatTitle(locale: Locale, value: string): string {
   const title = value.trim();
-  return title || "[unknown]";
+  return title || t(locale, "render.unknown");
 }
 
 function dedupePreserveOrder(values: string[]): string[] {

@@ -13,7 +13,8 @@ type ToolDefinition = {
 
 describe("sessions/find-session-tool", () => {
   test("describes read_session preview and full follow-up inspection", () => {
-    const toolDefinition = createFindSessionTool({ locale: "zh", 
+    const toolDefinition = createFindSessionTool({
+      locale: "zh",
       client: {
         experimental: {
           session: {
@@ -38,7 +39,8 @@ describe("sessions/find-session-tool", () => {
 
   test("returns an explanatory result for blank queries without searching", async () => {
     let listCalls = 0;
-    const toolDefinition = createFindSessionTool({ locale: "zh", 
+    const toolDefinition = createFindSessionTool({
+      locale: "zh",
       client: {
         experimental: {
           session: {
@@ -58,7 +60,7 @@ describe("sessions/find-session-tool", () => {
     const result = await toolDefinition.execute({ query: "   " });
 
     assert.match(result, /# Session Search Results/);
-    assert.match(result, /No query provided/);
+    assert.match(result, /未提供 query/);
     assert.equal(listCalls, 0);
   });
 
@@ -84,7 +86,8 @@ describe("sessions/find-session-tool", () => {
       },
     ];
     const metadataCalls: unknown[] = [];
-    const toolDefinition = createFindSessionTool({ locale: "zh", 
+    const toolDefinition = createFindSessionTool({
+      locale: "zh",
       client: {
         experimental: {
           session: {
@@ -117,8 +120,8 @@ describe("sessions/find-session-tool", () => {
     );
 
     assert.match(result, /Query: `needle`/);
-    assert.match(result, /Window: recent 3 non-archived sessions/);
-    assert.match(result, /Results: 3/);
+    assert.match(result, /窗口：近期 3 个未归档 session/);
+    assert.match(result, /结果： 3/);
     assert.match(
       result,
       /\| `ses_title01` \| Needle planning notes \| .* \| title \|/,
@@ -131,18 +134,19 @@ describe("sessions/find-session-tool", () => {
       result,
       /\| `ses_transcript01` \| Another unrelated title \| .* \| transcript \|/,
     );
-    assert.match(result, /call `read_session` with the complete Session ID/);
+    assert.match(result, /使用完整 Session ID/);
     assert.match(result, /`mode: "preview"`/);
     assert.match(result, /`mode: "full"`/);
-    assert.match(result, /trimmed message preview/);
-    assert.match(result, /complete context pack/);
+    assert.match(result, /精简消息预览/);
+    assert.match(result, /完整 context pack/);
     assert.doesNotMatch(result, /# Session Context Pack/);
     assert.doesNotMatch(result, /full transcript sample text/);
     assert.deepEqual(metadataCalls, []);
   });
 
   test("renders no-result output", async () => {
-    const toolDefinition = createFindSessionTool({ locale: "zh", 
+    const toolDefinition = createFindSessionTool({
+      locale: "zh",
       client: {
         experimental: {
           session: {
@@ -169,15 +173,16 @@ describe("sessions/find-session-tool", () => {
 
     const result = await toolDefinition.execute({ query: "needle" });
 
-    assert.match(result, /Results: 0/);
-    assert.match(result, /No matching sessions found\./);
+    assert.match(result, /结果： 0/);
+    assert.match(result, /未找到匹配的 session。/);
     assert.doesNotMatch(result, /call `read_session`/);
   });
 
   test("handles multi-keyword queries without returning context packs or metadata", async () => {
     let getCalls = 0;
     const metadataCalls: unknown[] = [];
-    const toolDefinition = createFindSessionTool({ locale: "zh", 
+    const toolDefinition = createFindSessionTool({
+      locale: "zh",
       client: {
         experimental: {
           session: {
@@ -231,7 +236,7 @@ describe("sessions/find-session-tool", () => {
     assert.match(result, /Query: `needle planning`/);
     assert.match(result, /`ses_multi_tool_title`/);
     assert.match(result, /`ses_multi_tool_transcript`/);
-    assert.match(result, /call `read_session` with the complete Session ID/);
+    assert.match(result, /使用完整 Session ID/);
     assert.match(result, /`mode: "preview"`/);
     assert.match(result, /`mode: "full"`/);
     assert.doesNotMatch(result, /# Session Context Pack/);
@@ -247,7 +252,8 @@ describe("sessions/find-session-tool", () => {
       slug: `many-${index}`,
       time: { updated: 100 - index, archived: 0 },
     }));
-    const toolDefinition = createFindSessionTool({ locale: "zh", 
+    const toolDefinition = createFindSessionTool({
+      locale: "zh",
       client: {
         experimental: {
           session: {
@@ -266,7 +272,7 @@ describe("sessions/find-session-tool", () => {
 
     const result = await toolDefinition.execute({ query: "needle" });
 
-    assert.match(result, /Results: 12/);
+    assert.match(result, /结果： 12/);
     assert.match(result, /`ses_many00`/);
     assert.match(result, /`ses_many10`/);
     assert.match(result, /`ses_many11`/);

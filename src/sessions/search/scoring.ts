@@ -3,11 +3,14 @@ import type {
   OpencodeClient,
   Part as SessionPart,
 } from "@opencode-ai/sdk/v2";
+import type { Locale } from "../../i18n/types";
+import { DEFAULT_LOCALE } from "../../i18n/types";
+import { t } from "../../i18n";
 
 const DEFAULT_TRANSCRIPT_SAMPLE_LIMIT = 8;
 
-export function getUntitledLabel(): string {
-  return "[untitled]";
+export function getUntitledLabel(locale: Locale = DEFAULT_LOCALE): string {
+  return t(locale, "render.untitled");
 }
 
 export type SearchMatchBucket = "title" | "slug-or-id" | "transcript";
@@ -36,6 +39,7 @@ export type SearchParams = {
   directory: string;
   query: string;
   resultLimit?: number;
+  locale?: Locale;
 };
 
 export type ParsedSearchQuery = {
@@ -189,10 +193,11 @@ export function buildSearchResult(
   session: GlobalSession,
   match: SearchMatchBucket,
   analysis: MatchAnalysis,
+  locale: Locale = DEFAULT_LOCALE,
 ): SearchResult {
   return {
     sessionID: session.id,
-    label: getSessionLabel(session),
+    label: getSessionLabel(session, locale),
     updatedAt: session.time.updated,
     match,
     phraseMatched: analysis.phraseMatched,
@@ -200,7 +205,10 @@ export function buildSearchResult(
   };
 }
 
-export function getSessionLabel(session: GlobalSession): string {
+export function getSessionLabel(
+  session: GlobalSession,
+  locale: Locale = DEFAULT_LOCALE,
+): string {
   const title = session.title.trim();
   if (title) {
     return title;
@@ -211,7 +219,7 @@ export function getSessionLabel(session: GlobalSession): string {
     return slug;
   }
 
-  return getUntitledLabel();
+  return getUntitledLabel(locale);
 }
 
 export async function collectTranscriptMatches({
@@ -222,6 +230,7 @@ export async function collectTranscriptMatches({
   exclude,
   remaining,
   idfWeights,
+  locale = DEFAULT_LOCALE,
 }: {
   client: OpencodeClient;
   directory: string;
@@ -230,6 +239,7 @@ export async function collectTranscriptMatches({
   exclude: Set<string>;
   remaining: number;
   idfWeights: Map<string, number>;
+  locale?: Locale;
 }): Promise<SearchResult[]> {
   const matches: SearchResult[] = [];
 
@@ -254,7 +264,7 @@ export async function collectTranscriptMatches({
       idfWeights,
     );
     if (analysis) {
-      matches.push(buildSearchResult(session, "transcript", analysis));
+      matches.push(buildSearchResult(session, "transcript", analysis, locale));
       exclude.add(session.id);
     }
   }

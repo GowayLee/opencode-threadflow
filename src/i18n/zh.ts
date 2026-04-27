@@ -173,13 +173,13 @@ $ARGUMENTS
 
 ### 对象选取
 
-选取最有检索价值的模块名、功能名、文件名、子系统名或概念名作为 \`[对象]\`，如 \`[core_service]\`、\`[user_layer]\`、\`[config]\`、\`[storage]\`。
+选取最有检索价值的模块名、功能名、文件名、子系统名或概念名作为 \`[对象]\`，如 \`[core_service]\`、\`[user_layer]\`、\`[session_search]\`、\`[storage]\`。
 
 不要使用泛泛词汇如 \`[问题]\`、\`[功能]\`、\`[代码]\`、\`[配置]\`。
 
 ### 主题约束
 
-- 控制在 8-18 个中文字符
+- 控制在英文 8-18 个词，中文 30-60 个字符
 - 表达 session 的最终有效产物
 - 保留未来可能用于搜索的关键词
 - 不使用完整句子或低信息密度表达
@@ -200,18 +200,25 @@ $ARGUMENTS
 3. 调用 \`name_session\` tool 传入 \`title\` 参数完成重命名
 4. 完成后提醒用户：当前轮用于重命名标题的对话会对本 session 的任务主线造成噪音污染，建议用户在确认标题后回滚（撤销/删除）本次重命名相关的消息轮次，仅保留标题变更结果`,
 
-  "command.session_search.template": `Render the plugin-provided session search result block exactly as-is.
+  "command.session_search.template": `原样渲染插件提供的 session 搜索结果块。
 
-Rules:
-- The plugin may inject a synthetic text block that begins with \`## Session Search Results\`.
-- If that block exists, output it verbatim and nothing else.
-- If that block does not exist, output exactly: Session search is unavailable.
-- Do not summarize, reformat, explain, or add extra commentary.
+规则：
+- 插件可能会注入一个以 \`## Session Search Results\` 开头的 synthetic text block。
+- 如果该 block 存在，逐字输出它，不输出任何其他内容。
+- 如果该 block 不存在，只输出：Session search is unavailable.
+- 不要总结、重排格式、解释或添加额外 commentary。
 
-Search query:
+搜索 query：
 """
 $ARGUMENTS
 """`,
+
+  "command.handoff.description":
+    "为新的 session 创建一份可编辑的 handoff note，用于继续当前工作",
+  "command.name_session.description":
+    "为当前 session 生成结构化标题并重命名，提升 session 列表可读性和 find_session 检索召回效果",
+  "command.session_search.description":
+    "搜索近期 session，并返回可复制的 session ID 以便显式引用",
 
   // ── Tools: name_session ────────────────────────────────────
 
@@ -250,28 +257,39 @@ Session 标题已更新。
   // ── Tools: find_session ────────────────────────────────────
 
   "tool.find_session.empty_query":
-    "No query provided. Call `find_session` with a non-empty `query` keyword.",
+    "未提供 query。请使用非空的 `query` 关键词调用 `find_session`。",
   "tool.find_session.no_results":
-    "No matching sessions found.\n\nTry a more specific or different query.",
+    "未找到匹配的 session。\n\n请尝试更具体或不同的 query。",
   "tool.find_session.query_label": "Query:",
-  "tool.find_session.window_label": "Window: recent",
-  "tool.find_session.results_label": "Results:",
+  "tool.find_session.window_label": "窗口：近期",
+  "tool.find_session.window_suffix": "个未归档 session",
+  "tool.find_session.results_label": "结果：",
+  "tool.find_session.table.session_id": "Session ID",
+  "tool.find_session.table.label": "标签",
+  "tool.find_session.table.updated_at": "更新时间",
+  "tool.find_session.table.match": "匹配位置",
   "tool.find_session.footer_hint":
-    'To inspect a candidate, call `read_session` with the complete Session ID and `mode: "preview"` for a trimmed message preview; if relevant, call `read_session` again with `mode: "full"` for the complete context pack.',
+    '如需检查候选项，请使用完整 Session ID 和 `mode: "preview"` 调用 `read_session` 获取精简消息预览；若确认相关，再用 `mode: "full"` 调用 `read_session` 获取完整 context pack。',
 
   // ── Tools: read_session ────────────────────────────────────
 
   "tool.read_session.incomplete_id":
-    "read_session requires a complete `session-id` like `ses_...`; keywords and truncated IDs are not supported.",
-  "tool.read_session.not_found": "No session was found for `{sessionID}`.",
-  "tool.read_session.unreadable": "Session could not be read.",
+    "read_session 需要完整的 `session-id`，如 `ses_...`；不支持关键词或截断 ID。",
+  "tool.read_session.not_found": "未找到 `{sessionID}` 对应的 session。",
+  "tool.read_session.unreadable": "无法读取 session。",
 
   // ── Tools: search rendering ────────────────────────────────
 
-  "tool.search.no_results": "No matching sessions found.",
+  "tool.search.no_results": "未找到匹配的 session。",
   "tool.search.query_label": "Query:",
-  "tool.search.window_label": "Window: recent",
-  "tool.search.results_label": "Results:",
+  "tool.search.window_label": "窗口：近期",
+  "tool.search.window_suffix": "个未归档 session",
+  "tool.search.results_label": "结果：",
+  "tool.search.usage": "用法：`/search-session <keyword>`",
+  "tool.search.table.session_id": "Session ID",
+  "tool.search.table.label": "标签",
+  "tool.search.table.updated_at": "更新时间",
+  "tool.search.table.match": "匹配位置",
 
   // ── Hooks: handoff ─────────────────────────────────────────
 
@@ -296,23 +314,39 @@ Session 标题已更新。
 
   // ── Render: placeholders & labels ──────────────────────────
 
-  "render.untitled": "[untitled]",
-  "render.missing_user_message": "[missing user message]",
+  "render.untitled": "[未命名]",
+  "render.missing_user_message": "[缺失用户消息]",
   "render.no_included_turns": "[无包含的轮次]",
   "render.none": "[无]",
-  "render.unknown": "[unknown]",
-  "render.file_content_truncated": "[file content truncated]",
-  "render.synthetic_content_truncated": "[synthetic content truncated]",
-  "render.reasoning_omitted": "[reasoning omitted]",
-  "render.tool_output_truncated": "[tool output truncated]",
-  "render.repeated_file_read_omitted": "[repeated file read omitted]",
-  "render.unknown_subtask": "[unknown subtask]",
+  "render.unknown": "[未知]",
+  "render.file_content_truncated": "[文件内容已截断]",
+  "render.synthetic_content_truncated": "[synthetic 内容已截断]",
+  "render.reasoning_omitted": "[reasoning 已省略]",
+  "render.tool_output_truncated": "[工具输出已截断]",
+  "render.repeated_file_read_omitted": "[重复文件读取已省略]",
+  "render.unknown_subtask": "[未知子任务]",
   "render.no_previewable_turns": "[无可预览的用户/助手消息轮次]",
   "render.middle_turns_omitted": "... [中间省略 {count} 个轮次] ...",
   "render.preview_notice_title": "## 预览说明",
   "render.preview_notice_line": "- 这是仅包含选中用户/助手消息的精简预览。",
   "render.preview_notice_read_full":
     '- 使用 read_session mode "full" 和相同的完整 session ID ({sessionID}) 获取完整上下文。',
+  "render.role.user": "用户",
+  "render.role.assistant": "助手",
+  "render.file_context": "文件上下文",
+  "render.qualifier.synthetic": "synthetic",
+  "render.qualifier.truncated": "已截断",
+  "render.assistant_activity": "助手活动",
+  "render.activity.read.title": "读取",
+  "render.activity.read.summary": "读取 {count} 个文件：",
+  "render.activity.commands.title": "命令",
+  "render.activity.commands.summary": "执行 {count} 条命令：",
+  "render.activity.patches.title": "补丁",
+  "render.activity.patches.summary": "修改 {count} 个文件：",
+  "render.activity.questions.title": "问题",
+  "render.activity.questions.summary": "回答 {count} 个问题：",
+  "render.activity.subtasks.title": "子任务",
+  "render.activity.subtasks.summary": "启动 {count} 个子任务：",
 
   // ── Render: injector prompt ─────────────────────────────────
 

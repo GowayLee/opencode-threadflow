@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import { t, type MessageKey } from "../../src/i18n";
 import type { Locale } from "../../src/i18n/types";
+import { en } from "../../src/i18n/en";
+import { zh } from "../../src/i18n/zh";
 
 describe("i18n/t()", () => {
   test("returns Chinese message for zh locale", () => {
@@ -24,11 +26,9 @@ describe("i18n/t()", () => {
     assert.match(result, /Test Title/);
   });
 
-  test("falls back to default (en) when key is missing in requested locale", () => {
-    // All keys present in both locales now, but t() will fallback to en by design
-    const result = t("zh", "tool.find_session.empty_query");
+  test("falls back to default (en) when requested locale is unavailable", () => {
+    const result = t("jp" as Locale, "tool.find_session.empty_query");
     assert.match(result, /No query provided/);
-    // zh.ts has same value for this key, so fallback behavior is transparent
   });
 
   test("replaces {param} placeholders with provided values", () => {
@@ -58,5 +58,36 @@ describe("i18n/t()", () => {
     // Use a key that's not in MessageKey union - cast to bypass type check
     const result = t("en", "nonexistent.key" as MessageKey);
     assert.match(result, /\[missing: nonexistent.key\]/);
+  });
+
+  test("keeps locale bundles on the same key set", () => {
+    assert.deepEqual(Object.keys(zh).sort(), Object.keys(en).sort());
+  });
+
+  test("does not introduce unsupported placeholders in zh messages", () => {
+    const placeholderPattern = /\{(\w+)\}/g;
+
+    for (const key of Object.keys(en) as Array<keyof typeof en>) {
+      const enPlaceholders = new Set(
+        [...en[key].matchAll(placeholderPattern)].map((match) => match[1]),
+      );
+      const zhPlaceholders = [
+        ...(zh[key] ?? "").matchAll(placeholderPattern),
+      ].map((match) => match[1]);
+
+      for (const placeholder of zhPlaceholders) {
+        assert.ok(
+          enPlaceholders.has(placeholder),
+          `${key} has unsupported zh placeholder {${placeholder}}`,
+        );
+      }
+    }
+  });
+
+  test("uses localized Chinese text for previously untranslated messages", () => {
+    assert.match(t("zh", "tool.find_session.empty_query"), /未提供 query/);
+    assert.match(t("zh", "tool.read_session.unreadable"), /无法读取 session/);
+    assert.match(t("zh", "tool.search.no_results"), /未找到匹配/);
+    assert.match(t("zh", "command.session_search.template"), /原样渲染/);
   });
 });

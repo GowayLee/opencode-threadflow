@@ -1,17 +1,23 @@
 import type { SearchResult, SearchResultSet } from "./scoring.js";
 import { compareSearchResults } from "./scoring.js";
+import type { Locale } from "../../i18n/types";
+import { DEFAULT_LOCALE } from "../../i18n/types";
+import { t } from "../../i18n";
 
 const DEFAULT_RESULT_LIMIT = 10;
 
-export function renderSearchResults(resultSet: SearchResultSet): string {
+export function renderSearchResults(
+  resultSet: SearchResultSet,
+  locale: Locale = DEFAULT_LOCALE,
+): string {
   if (resultSet.results.length === 0) {
     return [
       "## Session Search Results",
       "",
-      `Query: \`${resultSet.query}\``,
-      `Window: recent ${resultSet.scanned} non-archived sessions`,
+      `${t(locale, "tool.search.query_label")} \`${resultSet.query}\``,
+      `${t(locale, "tool.search.window_label")} ${resultSet.scanned} ${t(locale, "tool.search.window_suffix")}`,
       "",
-      "No matching sessions found.",
+      t(locale, "tool.search.no_results"),
     ].join("\n");
   }
 
@@ -20,11 +26,11 @@ export function renderSearchResults(resultSet: SearchResultSet): string {
   const lines = [
     "## Session Search Results",
     "",
-    `Query: \`${resultSet.query}\``,
-    `Window: recent ${resultSet.scanned} non-archived sessions`,
-    `Results: ${sorted.length}/${DEFAULT_RESULT_LIMIT}`,
+    `${t(locale, "tool.search.query_label")} \`${resultSet.query}\``,
+    `${t(locale, "tool.search.window_label")} ${resultSet.scanned} ${t(locale, "tool.search.window_suffix")}`,
+    `${t(locale, "tool.search.results_label")} ${sorted.length}/${DEFAULT_RESULT_LIMIT}`,
     "",
-    "| Session ID | Label | Updated At | Match |",
+    `| ${t(locale, "tool.search.table.session_id")} | ${t(locale, "tool.search.table.label")} | ${t(locale, "tool.search.table.updated_at")} | ${t(locale, "tool.search.table.match")} |`,
     "| --- | --- | --- | --- |",
   ];
 

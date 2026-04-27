@@ -10,6 +10,9 @@ import {
   compareSessions,
 } from "./scoring.js";
 import { renderSearchResults, normalizeResultLimit } from "./rendering.js";
+import type { Locale } from "../../i18n/types";
+import { DEFAULT_LOCALE } from "../../i18n/types";
+import { t } from "../../i18n";
 
 const DEFAULT_SCAN_LIMIT = 200;
 const DEFAULT_RESULT_LIMIT = 10;
@@ -41,11 +44,13 @@ export async function searchSessions({
   directory,
   query,
   resultLimit = DEFAULT_RESULT_LIMIT,
+  locale = DEFAULT_LOCALE,
 }: {
   client: OpencodeClient;
   directory: string;
   query: string;
   resultLimit?: number;
+  locale?: Locale;
 }): Promise<{
   query: string;
   scanned: number;
@@ -92,6 +97,7 @@ export async function searchSessions({
           session,
           metadataMatch.bucket,
           metadataMatch.analysis,
+          locale,
         ),
       );
       matchedSessionIDs.add(session.id);
@@ -104,6 +110,7 @@ export async function searchSessions({
           session,
           metadataMatch.bucket,
           metadataMatch.analysis,
+          locale,
         ),
       );
       matchedSessionIDs.add(session.id);
@@ -124,6 +131,7 @@ export async function searchSessions({
       exclude: matchedSessionIDs,
       remaining: effectiveResultLimit - results.length,
       idfWeights,
+      locale,
     });
 
     results.push(...transcriptMatches);
@@ -140,20 +148,20 @@ export async function buildSessionSearchCommandParts({
   client,
   directory,
   query,
+  locale = DEFAULT_LOCALE,
 }: {
   client: OpencodeClient;
   directory: string;
   query: string;
+  locale?: Locale;
 }): Promise<CommandPart[]> {
   const trimmed = query.trim();
   if (!trimmed) {
     return [
       createTextPart(
-        [
-          "## Session Search Results",
-          "",
-          "Usage: `/search-session <keyword>`",
-        ].join("\n"),
+        ["## Session Search Results", "", t(locale, "tool.search.usage")].join(
+          "\n",
+        ),
       ),
     ];
   }
@@ -162,9 +170,10 @@ export async function buildSessionSearchCommandParts({
     client,
     directory,
     query: trimmed,
+    locale,
   });
 
-  return [createTextPart(renderSearchResults(resultSet))];
+  return [createTextPart(renderSearchResults(resultSet, locale))];
 }
 
 function createTextPart(text: string): CommandPart {

@@ -36,8 +36,8 @@ describe("sessions/read-session-tool", () => {
       { metadata: (value) => metadataCalls.push(value) },
     );
 
-    assert.match(result, /Session could not be read\./);
-    assert.match(result, /requires a complete `session-id`/);
+    assert.match(result, /无法读取 session。/);
+    assert.match(result, /需要完整的 `session-id`/);
     assert.equal(metadataCalls.length, 0);
   });
 
@@ -124,14 +124,14 @@ describe("sessions/read-session-tool", () => {
     assert.match(result, /- Updated At: 2023-11-14T22:13:20\.000Z/);
     assert.match(result, /## Transcript Preview/);
     assert.match(result, /### Turn T1/);
-    assert.match(result, /- User: user turn 1/);
-    assert.match(result, /- Assistant: assistant turn 1/);
+    assert.match(result, /- 用户: user turn 1/);
+    assert.match(result, /- 助手: assistant turn 1/);
     assert.match(result, /### Turn T2/);
-    assert.match(result, /- User: user turn 2/);
+    assert.match(result, /- 用户: user turn 2/);
     assert.doesNotMatch(result, /user turn 3/);
     assert.match(result, /中间省略 1 个轮次/);
     assert.match(result, /### Turn T4/);
-    assert.match(result, /- User: user turn 4/);
+    assert.match(result, /- 用户: user turn 4/);
     assert.match(result, /### Turn T5/);
     assert.match(result, /### Turn T6/);
     assert.match(result, /## 预览说明/);
@@ -237,7 +237,7 @@ describe("sessions/read-session-tool", () => {
     assert.doesNotMatch(result, /# Session Context Pack/);
     assert.doesNotMatch(result, /## Activity/);
     assert.doesNotMatch(result, /## Compressed Content/);
-    assert.doesNotMatch(result, /Assistant Activity/);
+    assert.doesNotMatch(result, /助手活动/);
     assert.doesNotMatch(result, /hidden reasoning/);
     assert.doesNotMatch(result, /npm test -- hidden/);
     assert.doesNotMatch(result, /hidden command output/);
@@ -265,10 +265,10 @@ describe("sessions/read-session-tool", () => {
       { metadata: () => undefined },
     );
 
-    assert.match(result, /- User: user line 1 user line 2/);
-    assert.match(result, /- Assistant: assistant line 1 assistant line 2/);
-    assert.doesNotMatch(result, /- User:\n/);
-    assert.doesNotMatch(result, /- Assistant:\n/);
+    assert.match(result, /- 用户: user line 1 user line 2/);
+    assert.match(result, /- 助手: assistant line 1 assistant line 2/);
+    assert.doesNotMatch(result, /- 用户:\n/);
+    assert.doesNotMatch(result, /- 助手:\n/);
   });
 
   test("preview mode still rejects incomplete session ids before reading", async () => {
@@ -284,8 +284,8 @@ describe("sessions/read-session-tool", () => {
       { metadata: (value) => metadataCalls.push(value) },
     );
 
-    assert.match(result, /Session could not be read\./);
-    assert.match(result, /requires a complete `session-id`/);
+    assert.match(result, /无法读取 session。/);
+    assert.match(result, /需要完整的 `session-id`/);
     assert.equal(metadataCalls.length, 0);
   });
 });

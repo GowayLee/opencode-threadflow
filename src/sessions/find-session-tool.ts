@@ -64,7 +64,7 @@ function renderFindSessionResults(
       "# Session Search Results",
       "",
       `${t(locale, "tool.find_session.query_label")} \`${escapeCodeSpan(resultSet.query)}\``,
-      `${t(locale, "tool.find_session.window_label")} ${resultSet.scanned} non-archived sessions`,
+      `${t(locale, "tool.find_session.window_label")} ${resultSet.scanned} ${t(locale, "tool.find_session.window_suffix")}`,
       `${t(locale, "tool.find_session.results_label")} 0`,
       "",
       t(locale, "tool.find_session.no_results"),
@@ -75,10 +75,10 @@ function renderFindSessionResults(
     "# Session Search Results",
     "",
     `${t(locale, "tool.find_session.query_label")} \`${escapeCodeSpan(resultSet.query)}\``,
-    `${t(locale, "tool.find_session.window_label")} ${resultSet.scanned} non-archived sessions`,
+    `${t(locale, "tool.find_session.window_label")} ${resultSet.scanned} ${t(locale, "tool.find_session.window_suffix")}`,
     `${t(locale, "tool.find_session.results_label")} ${resultSet.results.length}`,
     "",
-    "| Session ID | Label | Updated At | Match |",
+    `| ${t(locale, "tool.find_session.table.session_id")} | ${t(locale, "tool.find_session.table.label")} | ${t(locale, "tool.find_session.table.updated_at")} | ${t(locale, "tool.find_session.table.match")} |`,
     "| --- | --- | --- | --- |",
   ];
 

@@ -188,7 +188,8 @@ describe("sessions/refinement", () => {
       "Refine session pack renderer (ses_subtask01)",
     ]);
 
-    const rendered = renderContextPack({ locale: "zh", 
+    const rendered = renderContextPack({
+      locale: "zh",
       session: normalized.session,
       compressedTurns: reduction.compressedTurns,
       activitySummary: activityIndex,
@@ -199,21 +200,21 @@ describe("sessions/refinement", () => {
     assert.match(rendered, /## Activity/);
     assert.match(rendered, /## Compressed Content/);
     assert.match(rendered, /### Turn T1/);
-    assert.match(rendered, /User \(synthetic, truncated\):/);
-    assert.match(rendered, /User File Context \(synthetic, truncated\):/);
+    assert.match(rendered, /用户 \(synthetic, 已截断\):/);
+    assert.match(rendered, /用户 文件上下文 \(synthetic, 已截断\):/);
     assert.match(
       rendered,
       /<path>\/workspace\/src\/plugin\.ts<\/path>\n  <type>file<\/type>/,
     );
-    assert.match(rendered, /- Assistant Activity:/);
-    assert.match(rendered, /read 1 file:/);
-    assert.match(rendered, /executed 1 command:/);
-    assert.match(rendered, /patched 1 file:/);
-    assert.match(rendered, /### Read/);
-    assert.match(rendered, /### Commands/);
-    assert.match(rendered, /### Patches/);
-    assert.match(rendered, /### Questions/);
-    assert.match(rendered, /### Subtasks/);
+    assert.match(rendered, /- 助手活动:/);
+    assert.match(rendered, /读取 1 个文件：/);
+    assert.match(rendered, /执行 1 条命令：/);
+    assert.match(rendered, /修改 1 个文件：/);
+    assert.match(rendered, /### 读取/);
+    assert.match(rendered, /### 命令/);
+    assert.match(rendered, /### 补丁/);
+    assert.match(rendered, /### 问题/);
+    assert.match(rendered, /### 子任务/);
     assert.match(
       rendered,
       /Notes: orphan assistant message for parent missing_user/,
@@ -231,7 +232,8 @@ describe("sessions/refinement", () => {
     const projectSample = await loadRawSample("ses_25f1d2e22ffeeau3rxS1D6je8x");
     const client = createSampleClient([handoffSample, projectSample]);
 
-    const handoffPack = await buildSessionContextPack({ locale: "zh", 
+    const handoffPack = await buildSessionContextPack({
+      locale: "zh",
       client: client as never,
       directory: ROOT,
       sessionID: handoffSample.session.id,
@@ -242,17 +244,18 @@ describe("sessions/refinement", () => {
     assert.match(handoffPack, /## Transcript/);
     assert.match(handoffPack, /## Activity/);
     assert.match(handoffPack, /## Compressed Content/);
-    assert.match(handoffPack, /Assistant Activity:/);
-    assert.match(handoffPack, /### Read/);
-    assert.match(handoffPack, /### Commands/);
-    assert.match(handoffPack, /\[tool output truncated\]/);
+    assert.match(handoffPack, /助手活动:/);
+    assert.match(handoffPack, /### 读取/);
+    assert.match(handoffPack, /### 命令/);
+    assert.match(handoffPack, /\[工具输出已截断\]/);
     assert.doesNotMatch(handoffPack, /Transcript Skeleton/);
     assert.doesNotMatch(handoffPack, /Activity Index/);
     assert.doesNotMatch(handoffPack, /Pack Coverage/);
     assert.doesNotMatch(handoffPack, /Omission Policy/);
     assert.doesNotMatch(handoffPack, /message id/i);
 
-    const projectPack = await buildSessionContextPack({ locale: "zh", 
+    const projectPack = await buildSessionContextPack({
+      locale: "zh",
       client: client as never,
       directory: ROOT,
       sessionID: projectSample.session.id,
@@ -263,10 +266,10 @@ describe("sessions/refinement", () => {
       projectPack,
       /Title: opencode-threads 项目起点与 thread 交互设计/,
     );
-    assert.match(projectPack, /User \(synthetic\):/);
-    assert.match(projectPack, /User File Context \(synthetic/);
-    assert.match(projectPack, /### Patches/);
-    assert.match(projectPack, /\[file content truncated\]/);
+    assert.match(projectPack, /用户 \(synthetic\):/);
+    assert.match(projectPack, /用户 文件上下文 \(synthetic/);
+    assert.match(projectPack, /### 补丁/);
+    assert.match(projectPack, /\[文件内容已截断\]/);
   });
 
   test("marks repeated reads and keeps multiline injected file content readable", async () => {
@@ -337,22 +340,23 @@ describe("sessions/refinement", () => {
     };
 
     const client = createSampleClient([syntheticSession]);
-    const pack = await buildSessionContextPack({ locale: "zh", 
+    const pack = await buildSessionContextPack({
+      locale: "zh",
       client: client as never,
       directory: ROOT,
       sessionID: "ses_syntheticpack01",
     });
 
     assert.ok(pack);
-    assert.match(pack, /User File Context \(synthetic, truncated\):/);
+    assert.match(pack, /用户 文件上下文 \(synthetic, 已截断\):/);
     assert.match(
       pack,
       /<path>\/workspace\/src\/plugin\.ts<\/path>\n  <type>file<\/type>/,
     );
-    assert.match(pack, /\[file content truncated\]/);
-    assert.match(pack, /\[repeated file read omitted\]/);
-    assert.match(pack, /\[tool output truncated\]/);
-    assert.match(pack, /executed 1 command:/);
+    assert.match(pack, /\[文件内容已截断\]/);
+    assert.match(pack, /\[重复文件读取已省略\]/);
+    assert.match(pack, /\[工具输出已截断\]/);
+    assert.match(pack, /执行 1 条命令：/);
     assert.doesNotMatch(pack, /Coverage Mode/);
   });
 });

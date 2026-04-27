@@ -111,6 +111,7 @@ export function registerSessionHooks({
           client,
           directory,
           query: command.arguments,
+          locale,
         })),
       );
     },

@@ -17,7 +17,7 @@ export function t(
   key: MessageKey,
   params?: Record<string, string>,
 ): string {
-  const bundle = messages[locale];
+  const bundle = messages[locale] ?? messages[DEFAULT_LOCALE];
   const fallback = messages[DEFAULT_LOCALE];
 
   let template: string | undefined = bundle[key];

@@ -173,7 +173,7 @@ Format requirements:
 
 ### Target Selection
 
-Select the most retrieval-valuable module name, feature name, file name, subsystem name, or concept name as \`[Target]\`, e.g. \`[core_service]\`, \`[user_layer]\`, \`[config]\`, \`[storage]\`.
+Select the most retrieval-valuable module name, feature name, file name, subsystem name, or concept name as \`[Target]\`, e.g. \`[core_service]\`, \`[user_layer]\`, \`[session_search]\`, \`[storage]\`.
 
 Do not use vague terms such as \`[issue]\`, \`[feature]\`, \`[code]\`, \`[config]\`.
 
@@ -212,6 +212,13 @@ Search query:
 """
 $ARGUMENTS
 """`,
+
+  "command.handoff.description":
+    "Create an editable handoff note for continuing work in a new session",
+  "command.name_session.description":
+    "Generate a structured title for the current session and rename it to improve session list readability and find_session recall",
+  "command.session_search.description":
+    "Search recent sessions and return copyable session IDs for explicit references",
 
   // ── Tools: name_session ────────────────────────────────────
 
@@ -255,7 +262,12 @@ Please check permissions and try again.`,
     "No matching sessions found.\n\nTry a more specific or different query.",
   "tool.find_session.query_label": "Query:",
   "tool.find_session.window_label": "Window: recent",
+  "tool.find_session.window_suffix": "non-archived sessions",
   "tool.find_session.results_label": "Results:",
+  "tool.find_session.table.session_id": "Session ID",
+  "tool.find_session.table.label": "Label",
+  "tool.find_session.table.updated_at": "Updated At",
+  "tool.find_session.table.match": "Match",
   "tool.find_session.footer_hint":
     'To inspect a candidate, call `read_session` with the complete Session ID and `mode: "preview"` for a trimmed message preview; if relevant, call `read_session` again with `mode: "full"` for the complete context pack.',
 
@@ -271,7 +283,13 @@ Please check permissions and try again.`,
   "tool.search.no_results": "No matching sessions found.",
   "tool.search.query_label": "Query:",
   "tool.search.window_label": "Window: recent",
+  "tool.search.window_suffix": "non-archived sessions",
   "tool.search.results_label": "Results:",
+  "tool.search.usage": "Usage: `/search-session <keyword>`",
+  "tool.search.table.session_id": "Session ID",
+  "tool.search.table.label": "Label",
+  "tool.search.table.updated_at": "Updated At",
+  "tool.search.table.match": "Match",
 
   // ── Hooks: handoff ─────────────────────────────────────────
 
@@ -317,6 +335,22 @@ Please check permissions and try again.`,
     "- This is a trimmed preview containing only selected user/assistant messages.",
   "render.preview_notice_read_full":
     '- Use read_session with mode "full" and the same complete session ID ({sessionID}) for complete context.',
+  "render.role.user": "User",
+  "render.role.assistant": "Assistant",
+  "render.file_context": "File Context",
+  "render.qualifier.synthetic": "synthetic",
+  "render.qualifier.truncated": "truncated",
+  "render.assistant_activity": "Assistant Activity",
+  "render.activity.read.title": "Read",
+  "render.activity.read.summary": "read {count} file{plural}:",
+  "render.activity.commands.title": "Commands",
+  "render.activity.commands.summary": "executed {count} command{plural}:",
+  "render.activity.patches.title": "Patches",
+  "render.activity.patches.summary": "patched {count} file{plural}:",
+  "render.activity.questions.title": "Questions",
+  "render.activity.questions.summary": "answered {count} question{plural}:",
+  "render.activity.subtasks.title": "Subtasks",
+  "render.activity.subtasks.summary": "started {count} subtask{plural}:",
 
   // ── Render: injector prompt ─────────────────────────────────
 
