@@ -19,15 +19,7 @@ import {
 } from "./session-reference/read-session-tool";
 import { injectSessionReferenceContext } from "./session-reference/injector";
 import { buildSessionSearchCommandParts } from "./session-reference/search";
-import {
-  buildHandoffInjectionText,
-  extractUpstreamChain,
-} from "./session-reference/chain-parser";
-import {
-  extractHandoffIDsFromMessages,
-  generateNextHandoffID,
-  resolvePredecessorSessions,
-} from "./session-reference/handoff-lineage";
+import { buildHandoffCommandContextText } from "./handoff/command-context";
 
 export const ThreadflowPlugin: Plugin = async (input) => {
   const sessionClient = createOpencodeClient({
@@ -85,83 +77,15 @@ export const ThreadflowPlugin: Plugin = async (input) => {
       }
 
       if (command.command === HANDOFF_COMMAND_NAME) {
-        let upstreamChain: Array<{ id: string; label: string }> = [];
-        let messages: Array<{ parts?: unknown[] }> = [];
-
-        try {
-          const messagesResponse = await sessionClient.session.messages({
-            directory: input.directory,
-            sessionID: command.sessionID,
-            limit: 50,
-          });
-          messages = messagesResponse.data ?? [];
-
-          for (const msg of messages) {
-            const parts = (msg as { parts?: unknown[] }).parts ?? [];
-            for (const part of parts) {
-              const typedPart = part as {
-                type?: string;
-                synthetic?: boolean;
-                text?: string;
-              };
-              if (typedPart.type !== "text" || typedPart.synthetic) {
-                continue;
-              }
-              const text = typedPart.text;
-              if (typeof text !== "string") {
-                continue;
-              }
-              upstreamChain = extractUpstreamChain(text, command.sessionID);
-              if (upstreamChain.length > 0) {
-                break;
-              }
-            }
-            if (upstreamChain.length > 0) {
-              break;
-            }
-          }
-        } catch {
-          // Fall through to existing behavior
-        }
-
-        const handoffID = generateNextHandoffID(messages, command.sessionID);
-        const historicalHandoffIDs = extractHandoffIDsFromMessages(
-          messages,
-          command.sessionID,
-        ).map((entry) => entry.id);
-        let predecessorSources: Array<{
-          sessionID: string;
-          handoffID: string;
-        }> = [];
-        let unresolvedHandoffIDs: string[] = [];
-
-        try {
-          const resolution = await resolvePredecessorSessions({
-            client: sessionClient,
-            directory: input.directory,
-            currentSessionID: command.sessionID,
-            handoffIDs: historicalHandoffIDs,
-          });
-          predecessorSources = resolution.resolved;
-          unresolvedHandoffIDs = [
-            ...resolution.unresolved,
-            ...resolution.ambiguous.map((item) => item.handoffID),
-          ];
-        } catch {
-          unresolvedHandoffIDs = historicalHandoffIDs;
-        }
-
-        const injectionText = buildHandoffInjectionText({
+        const contextText = await buildHandoffCommandContextText({
+          client: sessionClient,
+          directory: input.directory,
           sessionID: command.sessionID,
-          handoffID,
-          upstreamChain,
-          predecessorSources,
-          unresolvedHandoffIDs,
         });
 
         output.parts.push({
           type: "text",
-          text: injectionText,
+          text: contextText,
           synthetic: true,
         } as unknown as Part);
         return;

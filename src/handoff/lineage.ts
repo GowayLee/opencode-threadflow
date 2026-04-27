@@ -21,7 +21,7 @@ export interface HandoffPredecessorResolution {
   ambiguous: Array<{ handoffID: string; sessionIDs: string[] }>;
 }
 
-type MessageLike = {
+export type HandoffMessageLike = {
   info?: { role?: string };
   role?: string;
   parts?: unknown[];
@@ -56,7 +56,7 @@ export function extractHandoffIDsFromText(
 }
 
 export function extractHandoffIDsFromMessages(
-  messages: MessageLike[],
+  messages: HandoffMessageLike[],
   currentSessionID: string,
 ): HandoffIDEntry[] {
   const entries = new Map<string, HandoffIDEntry>();
@@ -73,7 +73,7 @@ export function extractHandoffIDsFromMessages(
 }
 
 export function generateNextHandoffID(
-  messages: MessageLike[],
+  messages: HandoffMessageLike[],
   currentSessionID: string,
 ): string {
   const existing = extractHandoffIDsFromMessages(messages, currentSessionID);
@@ -159,6 +159,17 @@ export function formatPredecessorSourcesForMarker(
     .join("; ");
 }
 
+export function getNonSyntheticTextParts(
+  message: HandoffMessageLike,
+): string[] {
+  return (message.parts ?? [])
+    .map((part) => part as TextPartLike)
+    .filter((part) => part.type === "text")
+    .filter((part) => !part.synthetic)
+    .map((part) => part.text)
+    .filter((text): text is string => typeof text === "string");
+}
+
 function containsExactHandoffIDMarker(
   text: string,
   handoffID: string,
@@ -180,7 +191,7 @@ async function getFirstUserMessageText({
     directory,
     sessionID: session.id,
   });
-  const messages = (messagesResponse.data ?? []) as MessageLike[];
+  const messages = (messagesResponse.data ?? []) as HandoffMessageLike[];
 
   for (const message of messages) {
     if (!isUserMessage(message)) {
@@ -196,17 +207,8 @@ async function getFirstUserMessageText({
   return "";
 }
 
-function isUserMessage(message: MessageLike): boolean {
+function isUserMessage(message: HandoffMessageLike): boolean {
   return (message.info?.role ?? message.role) === "user";
-}
-
-function getNonSyntheticTextParts(message: MessageLike): string[] {
-  return (message.parts ?? [])
-    .map((part) => part as TextPartLike)
-    .filter((part) => part.type === "text")
-    .filter((part) => !part.synthetic)
-    .map((part) => part.text)
-    .filter((text): text is string => typeof text === "string");
 }
 
 function compareSessions(a: GlobalSession, b: GlobalSession): number {

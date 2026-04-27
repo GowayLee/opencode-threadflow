@@ -5,9 +5,9 @@ import {
   formatChainForInjection,
   buildHandoffInjectionText,
   extractUpstreamChain,
-} from "../../src/session-reference/chain-parser.ts";
+} from "../../src/handoff/chain-parser.ts";
 
-describe("session-reference/chain-parser", () => {
+describe("handoff/chain-parser", () => {
   describe("parseChainMarker", () => {
     // 4.2 标准 `; ` 分隔的 marker 行解析（多条目）
     test("parses standard semicolon-separated marker with multiple entries", () => {

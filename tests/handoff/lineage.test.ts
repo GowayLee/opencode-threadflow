@@ -6,10 +6,10 @@ import {
   formatPredecessorSourcesForMarker,
   generateNextHandoffID,
   resolvePredecessorSessions,
-} from "../../src/session-reference/handoff-lineage.ts";
-import { ROOT, textPart } from "./test-helpers.ts";
+} from "../../src/handoff/lineage.ts";
+import { ROOT, textPart } from "../session-reference/test-helpers.ts";
 
-describe("session-reference/handoff-lineage", () => {
+describe("handoff/lineage", () => {
   describe("handoff-id parsing and generation", () => {
     test("extracts handoff IDs for the current session", () => {
       const entries = extractHandoffIDsFromText(
