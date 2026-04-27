@@ -3,10 +3,10 @@ import { describe, test } from "node:test";
 import {
   buildSessionSearchCommandParts,
   searchSessions,
-} from "../../src/session-reference/search/index.ts";
+} from "../../src/sessions/search/index.ts";
 import { ROOT, textPart } from "./test-helpers.ts";
 
-describe("session-reference/search", () => {
+describe("sessions/search", () => {
   test("keeps the default 200 -> 10 search window for title matches", async () => {
     const sessions = Array.from({ length: 220 }, (_, index) => ({
       id: `ses_search${String(index).padStart(3, "0")}`,

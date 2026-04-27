@@ -7,7 +7,7 @@ import {
   normalizeTranscript,
   reduceTurns,
   renderContextPack,
-} from "../../src/session-reference/refinement.ts";
+} from "../../src/sessions/refinement.ts";
 import {
   createSampleClient,
   loadRawSample,
@@ -27,7 +27,7 @@ const LONG_FILE_CONTEXT = [
   "</content>",
 ].join("\n");
 
-describe("session-reference/refinement", () => {
+describe("sessions/refinement", () => {
   test("renders readable transcript turns with activity summaries and source-aware truncation", () => {
     const normalized = normalizeTranscript({
       session: {
@@ -326,8 +326,7 @@ describe("session-reference/refinement", () => {
               state: {
                 status: "completed",
                 input: {
-                  command:
-                    "bun test tests/session-reference/refinement.test.ts",
+                  command: "bun test tests/sessions/refinement.test.ts",
                 },
                 output: "test output",
               },

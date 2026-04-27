@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { createReadSessionTool } from "../../src/session-reference/read-session-tool.ts";
+import { createReadSessionTool } from "../../src/sessions/read-session-tool.ts";
 import {
   createSampleClient,
   loadRawSample,
@@ -22,7 +22,7 @@ type ToolDefinition = {
 
 type TestSample = Parameters<typeof createSampleClient>[0][number];
 
-describe("session-reference/read-session-tool", () => {
+describe("sessions/read-session-tool", () => {
   test("rejects incomplete session ids before reading", async () => {
     const toolDefinition = createReadSessionTool({
       client: createSampleClient([]) as never,

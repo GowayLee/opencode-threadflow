@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { createNameSessionTool } from "../../../src/session-reference/name-session-tool.ts";
+import { createNameSessionTool } from "../../../src/sessions/name-session-tool.ts";
 import { ROOT } from "../test-helpers.ts";
 
 type ToolDefinition = {
@@ -11,7 +11,7 @@ type ToolDefinition = {
   ) => Promise<string>;
 };
 
-describe("session-reference/name-session-tool", () => {
+describe("sessions/name-session-tool", () => {
   test("renames current session and returns old/new title comparison", async () => {
     const metadataCalls: unknown[] = [];
     let updateCalled = false;

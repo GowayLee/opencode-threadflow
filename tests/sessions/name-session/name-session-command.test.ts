@@ -10,10 +10,10 @@ import { SEARCH_SESSION_COMMAND_NAME } from "../../../src/commands/session-searc
 import {
   createNameSessionTool,
   NAME_SESSION_TOOL_NAME,
-} from "../../../src/session-reference/name-session-tool.ts";
+} from "../../../src/sessions/name-session-tool.ts";
 import { ThreadflowPlugin } from "../../../src/plugin.ts";
 
-describe("session-reference/name-session-command", () => {
+describe("sessions/name-session-command", () => {
   test("command name is name-session", () => {
     assert.equal(NAME_SESSION_COMMAND_NAME, "name-session");
   });
@@ -98,7 +98,7 @@ describe("session-reference/name-session-command", () => {
   });
 });
 
-describe("session-reference/name-session-plugin-registration", () => {
+describe("sessions/name-session-plugin-registration", () => {
   test("plugin tool dictionary includes name_session", async () => {
     const plugin = await ThreadflowPlugin({
       client: {} as never,

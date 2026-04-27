@@ -7,7 +7,7 @@ import {
   generateNextHandoffID,
   resolvePredecessorSessions,
 } from "../../src/handoff/lineage.ts";
-import { ROOT, textPart } from "../session-reference/test-helpers.ts";
+import { ROOT, textPart } from "../sessions/test-helpers.ts";
 
 describe("handoff/lineage", () => {
   describe("handoff-id parsing and generation", () => {

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { createFindSessionTool } from "../../src/session-reference/find-session-tool.ts";
+import { createFindSessionTool } from "../../src/sessions/find-session-tool.ts";
 import { ROOT, textPart } from "./test-helpers.ts";
 
 type ToolDefinition = {
@@ -11,7 +11,7 @@ type ToolDefinition = {
   ) => Promise<string>;
 };
 
-describe("session-reference/find-session-tool", () => {
+describe("sessions/find-session-tool", () => {
   test("describes read_session preview and full follow-up inspection", () => {
     const toolDefinition = createFindSessionTool({
       client: {

@@ -18,11 +18,11 @@
 ├── openspec/                     # 本地 OpenSpec 工作区（已 gitignore，不再作为稳定仓库内容）
 ├── scripts/                      # 诊断、转换、渲染脚本
 ├── src/                          # 插件运行时代码
-│   ├── plugin.ts                 # 插件入口，装配命令、工具与 hook
+│   ├── plugin.ts                 # 插件入口，组合命令、工具与域 hook
 │   ├── commands/                 # slash command 模板与注册
 │   ├── handoff/                  # handoff source-chain、lineage 与 command context 运行时逻辑
-│   └── session-reference/        # 显式 session 引用、搜索、注入、精炼
-├── tests/                        # node:test 用例，覆盖 handoff、session-reference 与 session discovery
+│   └── sessions/                 # session 引用、搜索、工具、注入、命名与精炼
+├── tests/                        # node:test 用例，覆盖 handoff、sessions 与 session discovery
 ├── package.json                  # Bun/ESM 入口与脚本
 └── tsconfig.json                 # 严格 TypeScript 配置
 ```
@@ -36,7 +36,7 @@
 - `./docs/transcript-samples/AGENTS.md` - 样本与派生产物专用说明
 - `./src/AGENTS.md` - 运行时代码说明
 - `./src/handoff/AGENTS.md` - handoff 领域运行时说明
-- `./src/session-reference/AGENTS.md` - session-reference 子系统说明
+- `./src/sessions/AGENTS.md` - sessions 子系统说明
 
 在任一子树工作时，先读最近的子级 `AGENTS.md`，再补读父级。
 
@@ -55,34 +55,37 @@
 | 插件入口              | `src/plugin.ts`                                                                                                      |
 | 命令注册与模板        | `src/commands/index.ts`、`src/commands/handoff.ts`、`src/commands/session-search.ts`、`src/commands/name-session.ts` |
 | handoff 运行时实现    | `src/handoff/*`                                                                                                      |
-| session 引用实现      | `src/session-reference/*`                                                                                            |
-| 测试镜像              | `tests/handoff/*`、`tests/session-reference/*`                                                                       |
+| session 能力实现      | `src/sessions/*`                                                                                                     |
+| 测试镜像              | `tests/handoff/*`、`tests/sessions/*`                                                                                |
 | 样本与派生产物        | `docs/transcript-samples/*`                                                                                          |
 | 样本/结构检查脚本     | `scripts/inspect-transcripts.ts`                                                                                     |
 | context pack 渲染脚本 | `scripts/render-session-context-pack.mjs`                                                                            |
 
 ## CODE MAP
 
-| 路径                                         | 用途                                                                                                                                                                                                                                          |
-| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/plugin.ts`                              | 创建 `createOpencodeClient`，注册 `commands`、`read_session`、`find_session`、`name_session`，并在 `command.execute.before` / `chat.message` 中接入 handoff source 注入、`/search-session` 结果注入、`/name-session` 上下文注入与显式引用注入 |
-| `src/commands/index.ts`                      | 聚合所有 slash command                                                                                                                                                                                                                        |
-| `src/commands/handoff.ts`                    | `handoff` 的可编辑草稿模板                                                                                                                                                                                                                    |
-| `src/commands/session-search.ts`             | `/search-session` 的精确输出协议                                                                                                                                                                                                              |
-| `src/commands/name-session.ts`               | `/name-session` 的标题协议与执行模板                                                                                                                                                                                                          |
-| `src/handoff/chain-parser.ts`                | handoff source-chain marker 解析与注入文本格式化                                                                                                                                                                                              |
-| `src/handoff/command-context.ts`             | handoff 命令执行前 synthetic context 构造                                                                                                                                                                                                     |
-| `src/handoff/lineage.ts`                     | handoff-id 生成与 predecessor session resolution                                                                                                                                                                                              |
-| `src/session-reference/reference-parser.ts`  | 解析 `@@ses_...` 引用                                                                                                                                                                                                                         |
-| `src/session-reference/search/index.ts`      | `/search-session` 与 `find_session` 共享的搜索入口与 command part 装配                                                                                                                                                                        |
-| `src/session-reference/search/scoring.ts`    | 搜索 query 解析、IDF 权重、metadata/transcript 匹配与排序                                                                                                                                                                                     |
-| `src/session-reference/search/rendering.ts`  | 搜索结果表格渲染与结果窗口控制                                                                                                                                                                                                                |
-| `src/session-reference/injector.ts`          | 构造 synthetic 引用上下文并注入当前轮                                                                                                                                                                                                         |
-| `src/session-reference/find-session-tool.ts` | `find_session` 工具定义与候选结果渲染                                                                                                                                                                                                         |
-| `src/session-reference/name-session-tool.ts` | `name_session` 工具定义与重命名结果渲染                                                                                                                                                                                                       |
-| `src/session-reference/read-session-tool.ts` | `read_session` 工具定义与完整 ID 校验                                                                                                                                                                                                         |
-| `src/session-reference/refinement.ts`        | transcript 归一化、压缩与 `full` / `preview` 输出渲染                                                                                                                                                                                         |
-| `tests/session-reference/*`                  | 显式引用、搜索排序、发现、命名、`read_session` 分层输出的行为回归测试                                                                                                                                                                         |
+| 路径                                | 用途                                                                                        |
+| ----------------------------------- | ------------------------------------------------------------------------------------------- |
+| `src/plugin.ts`                     | 创建 `createOpencodeClient`，组合 commands、sessions tools、sessions hooks 与 handoff hooks |
+| `src/commands/index.ts`             | 聚合所有 slash command                                                                      |
+| `src/commands/handoff.ts`           | `handoff` 的可编辑草稿模板                                                                  |
+| `src/commands/session-search.ts`    | `/search-session` 的精确输出协议                                                            |
+| `src/commands/name-session.ts`      | `/name-session` 的标题协议与执行模板                                                        |
+| `src/handoff/index.ts`              | handoff 域 hook 注册入口                                                                    |
+| `src/handoff/chain-parser.ts`       | handoff source-chain marker 解析与注入文本格式化                                            |
+| `src/handoff/command-context.ts`    | handoff 命令执行前 synthetic context 构造                                                   |
+| `src/handoff/lineage.ts`            | handoff-id 生成与 predecessor session resolution                                            |
+| `src/sessions/index.ts`             | sessions 域 tool 与 hook 注册入口                                                           |
+| `src/sessions/hook-context.ts`      | `/name-session` 命令执行前上下文构造                                                        |
+| `src/sessions/reference-parser.ts`  | 解析 `@@ses_...` 引用                                                                       |
+| `src/sessions/search/index.ts`      | `/search-session` 与 `find_session` 共享的搜索入口与 command part 装配                      |
+| `src/sessions/search/scoring.ts`    | 搜索 query 解析、IDF 权重、metadata/transcript 匹配与排序                                   |
+| `src/sessions/search/rendering.ts`  | 搜索结果表格渲染与结果窗口控制                                                              |
+| `src/sessions/injector.ts`          | 构造 synthetic 引用上下文并注入当前轮                                                       |
+| `src/sessions/find-session-tool.ts` | `find_session` 工具定义与候选结果渲染                                                       |
+| `src/sessions/name-session-tool.ts` | `name_session` 当前 session 重命名工具                                                      |
+| `src/sessions/read-session-tool.ts` | `read_session` 工具定义与完整 ID 校验                                                       |
+| `src/sessions/refinement.ts`        | transcript 归一化、压缩与 `full` / `preview` 输出渲染                                       |
+| `tests/sessions/*`                  | 显式引用、搜索排序、发现、命名、`read_session` 分层输出的行为回归测试                       |
 
 ## CONVENTIONS
 
@@ -102,8 +105,8 @@
 
 ## ANTI-PATTERNS (THIS PROJECT)
 
-- 不要把 session-reference 逻辑塞回 `src/plugin.ts`。
-- 不要把 handoff marker、lineage 或 predecessor resolution 逻辑放回 `src/session-reference/`。
+- 不要把 sessions 逻辑塞回 `src/plugin.ts`。
+- 不要把 handoff marker、lineage 或 predecessor resolution 逻辑放回 `src/sessions/`。
 - 不要让 `find_session` 读取 context pack，也不要让 `read_session` 兼做模糊搜索、别名搜索或摘要生成器。
 - 不要把 `name_session` 扩成跨 session 重命名器，或顺手修改 session 内容。
 - 不要因为 `read_session` 支持 `preview` 就把显式 `@@ses_...` 注入自动降级成 preview。

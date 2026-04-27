@@ -1,7 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { createOpencodeClient, createOpencodeServer } from "@opencode-ai/sdk";
-import { buildSessionContextPack } from "../src/session-reference/refinement.ts";
+import { buildSessionContextPack } from "../src/sessions/refinement.ts";
 
 const ROOT = process.cwd();
 const SAMPLE_DIR = path.join(ROOT, "docs/transcript-samples/runtime");

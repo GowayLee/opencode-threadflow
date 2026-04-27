@@ -4,11 +4,11 @@ import {
   buildSessionReferenceInjectionParts,
   injectSessionReferenceContext,
   buildSessionReferenceFeedback,
-} from "../../src/session-reference/injector.ts";
-import { parseSessionReferences } from "../../src/session-reference/reference-parser.ts";
+} from "../../src/sessions/injector.ts";
+import { parseSessionReferences } from "../../src/sessions/reference-parser.ts";
 import { createSampleClient, ROOT, textPart } from "./test-helpers.ts";
 
-describe("session-reference/injector", () => {
+describe("sessions/injector", () => {
   test("injects valid references, preserves order, de-duplicates ids and reports failures", async () => {
     const existingSession = {
       session: {

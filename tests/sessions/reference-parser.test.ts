@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { parseSessionReferences } from "../../src/session-reference/reference-parser.ts";
+import { parseSessionReferences } from "../../src/sessions/reference-parser.ts";
 import { textPart } from "./test-helpers.ts";
 
-describe("session-reference/reference-parser", () => {
+describe("sessions/reference-parser", () => {
   test("keeps first-seen order and de-duplicates repeated valid ids", () => {
     const parsed = parseSessionReferences([
       textPart(

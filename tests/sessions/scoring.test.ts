@@ -9,7 +9,7 @@ import {
   getMetadataMatch,
   compareSearchResults,
   type SearchResult,
-} from "../../src/session-reference/search/scoring.ts";
+} from "../../src/sessions/search/scoring.ts";
 
 function makeSession(id: string, title: string, slug?: string) {
   return {
@@ -27,7 +27,7 @@ function defaultIdf(
   return computeIdfWeights(sessions as never, terms);
 }
 
-describe("session-reference/search/scoring", () => {
+describe("sessions/search/scoring", () => {
   describe("computeIdfWeights", () => {
     test("high-frequency terms get lower weight than low-frequency terms", () => {
       const sessions = [

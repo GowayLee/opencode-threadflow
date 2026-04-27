@@ -1,15 +1,17 @@
-# src/session-reference/AGENTS.md
+# src/sessions/AGENTS.md
 
 ## OVERVIEW
 
-显式 session 引用子系统。这里负责 `@@ses_...` 解析、用户侧 session 搜索、agent 侧候选发现、引用注入、`read_session` 的 `full` / `preview` 输出、当前 session 标题重命名，以及 transcript 精炼。
+sessions 子系统。这里负责 `@@ses_...` 显式引用解析、用户侧 session 搜索、agent 侧候选发现、引用注入、`read_session` 的 `full` / `preview` 输出、当前 session 标题重命名，以及 transcript 精炼。
 
 handoff source-chain、handoff-id 与 predecessor session resolution 属于 `src/handoff/`，不要放回本目录。
 
 ## STRUCTURE
 
 ```
-src/session-reference/
+src/sessions/
+├── index.ts
+├── hook-context.ts
 ├── reference-parser.ts
 ├── search/
 │   ├── index.ts
@@ -26,6 +28,8 @@ src/session-reference/
 
 | 组件                   | 用途                                                           |
 | ---------------------- | -------------------------------------------------------------- |
+| `index.ts`             | sessions 域 tool 与 hook 注册入口                              |
+| `hook-context.ts`      | `/name-session` 命令执行前上下文构造                           |
 | `reference-parser.ts`  | 解析显式 `@@ses_...` 引用并去重                                |
 | `search/index.ts`      | `/search-session` 与 `find_session` 共用的搜索入口与结果块装配 |
 | `search/scoring.ts`    | query 解析、IDF 权重、metadata/transcript 匹配与排序           |
@@ -38,16 +42,16 @@ src/session-reference/
 
 ## WHERE TO LOOK
 
-| 目的                          | 位置                                                                                         |
-| ----------------------------- | -------------------------------------------------------------------------------------------- |
-| 改引用语法                    | `reference-parser.ts`、`injector.ts`、`read-session-tool.ts`                                 |
-| 改 `/search-session` 结果格式 | `search/index.ts`、`search/rendering.ts`、`tests/session-reference/search.test.ts`           |
-| 改搜索排序/召回               | `search/scoring.ts`、`tests/session-reference/scoring.test.ts`                               |
-| 改 `find_session` 输出        | `find-session-tool.ts`、`tests/session-reference/find-session-tool.test.ts`                  |
-| 改 `name_session` 输出        | `name-session-tool.ts`、`tests/session-reference/name-session/name-session-tool.test.ts`     |
-| 改引用注入行为                | `injector.ts`、`tests/session-reference/injector.test.ts`                                    |
-| 改 `read_session` 输出        | `read-session-tool.ts`、`refinement.ts`、`tests/session-reference/read-session-tool.test.ts` |
-| 改 context pack 结构          | `refinement.ts`、`tests/session-reference/refinement.test.ts`                                |
+| 目的                          | 位置                                                                                               |
+| ----------------------------- | -------------------------------------------------------------------------------------------------- |
+| 改引用语法                    | `reference-parser.ts`、`injector.ts`、`read-session-tool.ts`                                       |
+| 改 `/search-session` 结果格式 | `search/index.ts`、`search/rendering.ts`、`tests/sessions/search.test.ts`                          |
+| 改搜索排序/召回               | `search/scoring.ts`、`tests/sessions/scoring.test.ts`                                              |
+| 改 `find_session` 输出        | `find-session-tool.ts`、`tests/sessions/find-session-tool.test.ts`                                 |
+| 改 `name_session` 输出        | `name-session-tool.ts`、`hook-context.ts`、`tests/sessions/name-session/name-session-tool.test.ts` |
+| 改引用注入行为                | `injector.ts`、`tests/sessions/injector.test.ts`                                                   |
+| 改 `read_session` 输出        | `read-session-tool.ts`、`refinement.ts`、`tests/sessions/read-session-tool.test.ts`                |
+| 改 context pack 结构          | `refinement.ts`、`tests/sessions/refinement.test.ts`                                               |
 
 ## CONVENTIONS
 

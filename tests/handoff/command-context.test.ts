@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import { buildHandoffCommandContextText } from "../../src/handoff/command-context.ts";
-import { ROOT, textPart } from "../session-reference/test-helpers.ts";
+import { ROOT, textPart } from "../sessions/test-helpers.ts";
 
 describe("handoff/command-context", () => {
   test("builds context with upstream chain and resolved predecessor sessions", async () => {
