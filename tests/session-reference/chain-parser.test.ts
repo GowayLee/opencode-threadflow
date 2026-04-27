@@ -193,6 +193,7 @@ describe("session-reference/chain-parser", () => {
     test("with upstream chain, includes session ID and task flow with labels", () => {
       const text = buildHandoffInjectionText({
         sessionID: "ses_CCC",
+        handoffID: "ses_CCC-1",
         upstreamChain: [
           { id: "ses_AAA", label: "Implement auth" },
           { id: "ses_BBB", label: "Fix token" },
@@ -200,6 +201,7 @@ describe("session-reference/chain-parser", () => {
       });
 
       assert.match(text, /当前 session ID: `ses_CCC`/);
+      assert.match(text, /本次 handoff ID: `ses_CCC-1`/);
       assert.match(
         text,
         /上游任务流: `ses_AAA` Implement auth → `ses_BBB` Fix token/,
@@ -208,21 +210,42 @@ describe("session-reference/chain-parser", () => {
       assert.match(text, /§ included by opencode-threadflow plugin/);
     });
 
-    test("without upstream chain, only includes session ID (existing behavior)", () => {
+    test("without upstream chain, includes only real current handoff source data", () => {
       const text = buildHandoffInjectionText({
         sessionID: "ses_CCC",
+        handoffID: "ses_CCC-1",
         upstreamChain: [],
       });
 
-      assert.match(text, /This session ID: `ses_CCC`/);
+      assert.match(text, /当前 session ID: `ses_CCC`/);
+      assert.match(text, /本次 handoff ID: `ses_CCC-1`/);
       assert.doesNotMatch(text, /上游任务流/);
       assert.doesNotMatch(text, /read_session/);
-      assert.doesNotMatch(text, /当前 session ID/);
+      assert.doesNotMatch(text, /ses_AAA/);
+      assert.doesNotMatch(text, /ses_BBB/);
+      assert.doesNotMatch(text, /ses_CCC Add OAuth/);
+    });
+
+    test("includes resolved predecessor sessions as lookup pointers", () => {
+      const text = buildHandoffInjectionText({
+        sessionID: "ses_HOME",
+        handoffID: "ses_HOME-3",
+        upstreamChain: [],
+        predecessorSources: [
+          { sessionID: "ses_CHILD", handoffID: "ses_HOME-1" },
+        ],
+      });
+
+      assert.match(text, /已解析前序子会话/);
+      assert.match(text, /- `ses_CHILD` via `ses_HOME-1`/);
+      assert.match(text, /source pointer/);
+      assert.doesNotMatch(text, /\[handoff-predecessor-sessions\]/);
     });
 
     test("with upstream chain containing Chinese labels", () => {
       const text = buildHandoffInjectionText({
         sessionID: "ses_CCC",
+        handoffID: "ses_CCC-1",
         upstreamChain: [
           { id: "ses_AAA", label: "实现用户认证" },
           { id: "ses_BBB", label: "修复token刷新" },
@@ -239,6 +262,7 @@ describe("session-reference/chain-parser", () => {
     test("injection text starts and ends with delimiter", () => {
       const text = buildHandoffInjectionText({
         sessionID: "ses_CCC",
+        handoffID: "ses_CCC-1",
         upstreamChain: [],
       });
 
@@ -279,10 +303,7 @@ describe("session-reference/chain-parser", () => {
       assert.deepEqual(chain, []);
     });
 
-    test("returns empty when marker is in synthetic-like content (text is just text for this unit)", () => {
-      // extractUpstreamChain only cares about the regex match in the text;
-      // the "synthetic" filtering is done at the plugin level, not here.
-      // This test verifies the function still works on arbitrary text.
+    test("ignores marker-like examples when they are not the first content line", () => {
       const syntheticInjectionText =
         "---\n" +
         "§ included by opencode-threadflow plugin\n" +
@@ -293,19 +314,25 @@ describe("session-reference/chain-parser", () => {
 
       const chain = extractUpstreamChain(syntheticInjectionText, "ses_ZZZ");
 
-      // The marker IS found in synthetic text at this level, but the plugin
-      // filters synthetic parts before calling this function.
-      assert.equal(chain.length, 1);
-      assert.equal(chain[0]!.id, "ses_AAA");
+      assert.deepEqual(chain, []);
     });
 
-    test("tolerates multiline text and finds marker on any line", () => {
+    test("extracts marker only when it is the first content line", () => {
       const chain = extractUpstreamChain(
-        "Some other text\n[handoff-source-chain]: ses_AAA Init; ses_BBB Continue\nMore text",
+        "[handoff-source-chain]: ses_AAA Init; ses_BBB Continue\nMore text",
         "ses_BBB",
       );
 
       assert.deepEqual(chain, [{ id: "ses_AAA", label: "Init" }]);
+    });
+
+    test("ignores source-chain examples that are not the first content line", () => {
+      const chain = extractUpstreamChain(
+        "This is an example only\n[handoff-source-chain]: ses_AAA Init; ses_BBB Continue",
+        "ses_BBB",
+      );
+
+      assert.deepEqual(chain, []);
     });
   });
 });

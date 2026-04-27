@@ -8,6 +8,11 @@ export interface ChainEntry {
   label: string;
 }
 
+export interface HandoffInjectionPredecessorSource {
+  sessionID: string;
+  handoffID: string;
+}
+
 /**
  * Parse the payload of a `[handoff-source-chain]:` marker line into an array
  * of {id, label} entries using ID-anchored extraction.
@@ -76,9 +81,18 @@ export function formatChainForInjection(chain: ChainEntry[]): string {
  */
 export function buildHandoffInjectionText(params: {
   sessionID: string;
+  handoffID?: string;
   upstreamChain: ChainEntry[];
+  predecessorSources?: HandoffInjectionPredecessorSource[];
+  unresolvedHandoffIDs?: string[];
 }): string {
-  const { sessionID, upstreamChain } = params;
+  const {
+    sessionID,
+    handoffID,
+    upstreamChain,
+    predecessorSources = [],
+    unresolvedHandoffIDs = [],
+  } = params;
   const hasUpstream = upstreamChain.length > 0;
 
   const lines: string[] = [
@@ -87,12 +101,32 @@ export function buildHandoffInjectionText(params: {
     "",
   ];
 
+  lines.push(`当前 session ID: \`${sessionID}\``);
+  if (handoffID) {
+    lines.push(`本次 handoff ID: \`${handoffID}\``);
+  }
+
   if (hasUpstream) {
-    lines.push(`当前 session ID: \`${sessionID}\``);
     lines.push(`上游任务流: ${formatChainForInjection(upstreamChain)}`);
     lines.push("可通过 `read_session` 逐级回溯完整任务意图。");
-  } else {
-    lines.push(`This session ID: \`${sessionID}\``);
+  }
+
+  if (predecessorSources.length > 0) {
+    lines.push("已解析前序子会话:");
+    for (const source of predecessorSources) {
+      lines.push(`- \`${source.sessionID}\` via \`${source.handoffID}\``);
+    }
+    lines.push(
+      "这些前序子会话仅是可通过 `read_session` 回看的 source pointer，不是事实摘要。",
+    );
+  }
+
+  if (unresolvedHandoffIDs.length > 0) {
+    lines.push("未解析前序 handoff:");
+    for (const unresolvedID of unresolvedHandoffIDs) {
+      lines.push(`- \`${unresolvedID}\``);
+    }
+    lines.push("不要为未解析 handoff 编造子会话 ID。");
   }
 
   lines.push("---");
@@ -111,7 +145,9 @@ export function extractUpstreamChain(
   payload: string,
   currentSessionID: string,
 ): ChainEntry[] {
-  const markerMatch = payload.match(/^\[handoff-source-chain\]:\s+(.+)$/m);
+  const markerMatch = payload.match(
+    /^\s*\[handoff-source-chain\]:\s+([^\r\n]+)(?:\r?\n|$)/,
+  );
   if (!markerMatch) {
     return [];
   }
