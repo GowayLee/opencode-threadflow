@@ -5,17 +5,21 @@ import {
   parseSessionReferences,
   type InvalidSessionReference,
 } from "./reference-parser";
+import type { Locale } from "../i18n/types";
+import { t } from "../i18n";
 
 type SessionReferenceInjectorParams = {
   client: OpencodeClient;
   directory: string;
   parts: Part[];
+  locale: Locale;
 };
 
 export async function buildSessionReferenceInjectionParts({
   client,
   directory,
   parts,
+  locale,
 }: SessionReferenceInjectorParams): Promise<Part[]> {
   const parsed = parseSessionReferences(parts);
   if (parsed.references.length === 0 && parsed.invalidReferences.length === 0) {
@@ -41,6 +45,7 @@ export async function buildSessionReferenceInjectionParts({
       client,
       directory,
       sessionID: entry.sessionID,
+      locale,
     });
 
     if (!contextPack) {
@@ -85,21 +90,11 @@ export async function buildSessionReferenceInjectionParts({
 
   if (injectedParts.length > 0) {
     injectedParts.push(
-      createSyntheticTextPart(
-        [
-          "When responding, start with a brief session-reference loading report.",
-          "For each successfully loaded session, list the session ID with its title.",
-          "For each failed reference, note the failure reason.",
-          "Keep this report concise -- at most one line per reference.",
-          "Do not stop after the loading report.",
-          "Continue with the user's current request, using the loaded session content as reference material when relevant.",
-        ].join(" "),
-        {
-          threadflow: {
-            type: "session-reference-prompt",
-          },
+      createSyntheticTextPart(t(locale, "render.injector_prompt"), {
+        threadflow: {
+          type: "session-reference-prompt",
         },
-      ),
+      }),
     );
   }
 
@@ -117,6 +112,7 @@ type InjectSessionReferenceContextParams = {
   };
   variant?: string;
   parts: Part[];
+  locale: Locale;
 };
 
 export async function injectSessionReferenceContext({
@@ -127,11 +123,13 @@ export async function injectSessionReferenceContext({
   model,
   variant,
   parts,
+  locale,
 }: InjectSessionReferenceContextParams): Promise<number> {
   const injectedParts = await buildSessionReferenceInjectionParts({
     client,
     directory,
     parts,
+    locale,
   });
 
   if (injectedParts.length === 0) {

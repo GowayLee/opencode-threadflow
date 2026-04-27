@@ -5,6 +5,8 @@ import type {
   Part,
   ToolPart,
 } from "@opencode-ai/sdk/v2";
+import type { Locale } from "../i18n/types";
+import { t } from "../i18n";
 
 const INJECTION_TEXT_LIMIT = 300;
 
@@ -167,12 +169,14 @@ type BuildContextPackParams = {
   client: OpencodeClient;
   directory: string;
   sessionID: string;
+  locale: Locale;
 };
 
 export async function buildSessionContextPack({
   client,
   directory,
   sessionID,
+  locale,
 }: BuildContextPackParams): Promise<string | null> {
   const [sessionResponse, messagesResponse] = await Promise.all([
     client.session.get({
@@ -203,6 +207,7 @@ export async function buildSessionContextPack({
   const activityIndex = buildActivityIndex(reduction.compressedTurns);
 
   return renderContextPack({
+    locale,
     session: normalized.session,
     compressedTurns: reduction.compressedTurns,
     activitySummary: activityIndex,
@@ -214,6 +219,7 @@ export async function buildSessionPreviewPack({
   client,
   directory,
   sessionID,
+  locale,
 }: BuildContextPackParams): Promise<string | null> {
   const [sessionResponse, messagesResponse] = await Promise.all([
     client.session.get({
@@ -243,6 +249,7 @@ export async function buildSessionPreviewPack({
   const previewSelection = selectPreviewTurns(assembledTurns);
 
   return renderPreviewPack({
+    locale,
     session: normalized.session,
     effectiveTurns: previewSelection.effectiveTurns,
     selectedTurns: previewSelection.selectedTurns,
@@ -411,6 +418,7 @@ export function buildActivityIndex(turns: CompressedTurn[]): ActivityIndex {
 }
 
 export function renderContextPack(input: {
+  locale: Locale;
   session: SessionMetadata;
   compressedTurns?: CompressedTurn[];
   reducedTurns?: CompressedTurn[];
@@ -419,6 +427,7 @@ export function renderContextPack(input: {
   compressedContent?: string[];
   omittedContent?: string[];
 }): string {
+  const { locale, session } = input;
   const compressedTurns = input.compressedTurns ?? input.reducedTurns ?? [];
   const activitySummary = input.activitySummary ??
     input.activityIndex ?? {
@@ -435,15 +444,15 @@ export function renderContextPack(input: {
     "# Session Context Pack",
     "",
     "## Session",
-    `- Title: ${formatTitle(input.session.title)}`,
-    `- Updated At: ${new Date(input.session.updatedAt).toISOString()}`,
+    `- Title: ${formatTitle(session.title)}`,
+    `- Updated At: ${new Date(session.updatedAt).toISOString()}`,
     "",
     "## Transcript",
     "",
   ];
 
   if (compressedTurns.length === 0) {
-    lines.push("[no included turns]", "");
+    lines.push(t(locale, "render.no_included_turns"), "");
   }
 
   for (const turn of compressedTurns) {
@@ -477,16 +486,16 @@ export function renderContextPack(input: {
 
   lines.push("## Activity", "");
 
-  const activitySections = renderActivitySections(activitySummary);
+  const activitySections = renderActivitySections(locale, activitySummary);
   if (activitySections.length === 0) {
-    lines.push("- [none]", "");
+    lines.push(`- ${t(locale, "render.none")}`, "");
   } else {
     lines.push(...activitySections, "");
   }
 
   lines.push("## Compressed Content");
   if (compressedContent.length === 0) {
-    lines.push("- [none]");
+    lines.push(`- ${t(locale, "render.none")}`);
   } else {
     for (const item of compressedContent) {
       lines.push(`- ${item}`);
@@ -560,10 +569,12 @@ function extractPreviewMessagesFromParts(
 }
 
 function renderPreviewPack(input: {
+  locale: Locale;
   session: SessionMetadata;
   effectiveTurns: PreviewTurn[];
   selectedTurns: PreviewTurn[];
 }): string {
+  const { locale } = input;
   const lines = [
     "# Session Context Preview",
     "",
@@ -577,7 +588,7 @@ function renderPreviewPack(input: {
   ];
 
   if (input.selectedTurns.length === 0) {
-    lines.push("[no previewable user/assistant message turns]", "");
+    lines.push(t(locale, "render.no_previewable_turns"), "");
   }
 
   for (let index = 0; index < input.selectedTurns.length; index += 1) {
@@ -596,7 +607,10 @@ function renderPreviewPack(input: {
 
       if (omittedCount > 0) {
         lines.push(
-          `... [${omittedCount} middle turn${pluralize(omittedCount)} omitted in preview] ...`,
+          t(locale, "render.middle_turns_omitted", {
+            count: String(omittedCount),
+            plural: pluralize(omittedCount),
+          }),
           "",
         );
       }
@@ -610,10 +624,12 @@ function renderPreviewPack(input: {
   }
 
   lines.push(
-    "## Preview Notice",
+    t(locale, "render.preview_notice_title"),
     "",
-    "- This is a trimmed preview containing only selected user/assistant messages.",
-    `- Use read_session with mode "full" and the same complete session ID (${input.session.id}) for complete context.`,
+    t(locale, "render.preview_notice_line"),
+    t(locale, "render.preview_notice_read_full", {
+      sessionID: input.session.id,
+    }),
   );
 
   return lines.join("\n");
@@ -1204,7 +1220,10 @@ function renderActivityRecord(
   }
 }
 
-function renderActivitySections(activityIndex: ActivityIndex): string[] {
+function renderActivitySections(
+  locale: Locale,
+  activityIndex: ActivityIndex,
+): string[] {
   const lines: string[] = [];
 
   appendActivitySection(lines, "Read", "read", "file", activityIndex.filesRead);

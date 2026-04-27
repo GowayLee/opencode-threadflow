@@ -4,7 +4,7 @@ import {
   NAME_SESSION_COMMAND_NAME,
   nameSessionCommand,
 } from "../../../src/commands/name-session.ts";
-import { commands } from "../../../src/commands/index.ts";
+import { createCommands } from "../../../src/commands/index.ts";
 import { HANDOFF_COMMAND_NAME } from "../../../src/commands/handoff.ts";
 import { SEARCH_SESSION_COMMAND_NAME } from "../../../src/commands/session-search.ts";
 import {
@@ -69,15 +69,17 @@ describe("sessions/name-session-command", () => {
   });
 
   test("nameSessionCommand is registered in commands index", () => {
+    const commands = createCommands("zh");
     assert.ok(commands[NAME_SESSION_COMMAND_NAME]);
-    assert.equal(commands[NAME_SESSION_COMMAND_NAME], nameSessionCommand);
   });
 
   test("handoff command is still registered", () => {
+    const commands = createCommands("zh");
     assert.ok(commands[HANDOFF_COMMAND_NAME]);
   });
 
   test("search-session command is still registered", () => {
+    const commands = createCommands("zh");
     assert.ok(commands[SEARCH_SESSION_COMMAND_NAME]);
   });
 
@@ -89,6 +91,7 @@ describe("sessions/name-session-command", () => {
     const toolDef = createNameSessionTool({
       client: {} as never,
       directory: "/test",
+      locale: "zh",
     });
 
     assert.ok(toolDef.description);

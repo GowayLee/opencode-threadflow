@@ -1,11 +1,13 @@
 import type { Part } from "@opencode-ai/sdk";
 import type { OpencodeClient } from "@opencode-ai/sdk/v2";
+import type { Locale } from "../i18n/types";
 import { HANDOFF_COMMAND_NAME } from "../commands/handoff";
 import { buildHandoffCommandContextText } from "./command-context";
 
 type ThreadflowPluginContext = {
   client: OpencodeClient;
   directory: string;
+  locale: Locale;
 };
 
 type CommandInput = {
@@ -20,6 +22,7 @@ type CommandOutput = {
 export function registerHandoffHooks({
   client,
   directory,
+  locale,
 }: ThreadflowPluginContext) {
   return {
     "command.execute.before": async (
@@ -36,6 +39,7 @@ export function registerHandoffHooks({
             client,
             directory,
             sessionID: command.sessionID,
+            locale,
           }),
         ),
       );

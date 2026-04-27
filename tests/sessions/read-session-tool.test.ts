@@ -25,6 +25,7 @@ type TestSample = Parameters<typeof createSampleClient>[0][number];
 describe("sessions/read-session-tool", () => {
   test("rejects incomplete session ids before reading", async () => {
     const toolDefinition = createReadSessionTool({
+      locale: "zh",
       client: createSampleClient([]) as never,
       directory: ROOT,
     }) as unknown as ToolDefinition;
@@ -44,6 +45,7 @@ describe("sessions/read-session-tool", () => {
     const sample = await loadRawSample("ses_25ecc5a89fferms5vu4KQ9OwP3");
     const metadataCalls: unknown[] = [];
     const toolDefinition = createReadSessionTool({
+      locale: "zh",
       client: createSampleClient([sample]) as never,
       directory: ROOT,
     }) as unknown as ToolDefinition;
@@ -72,6 +74,7 @@ describe("sessions/read-session-tool", () => {
   test("returns a full context pack when mode is explicitly full", async () => {
     const sample = await loadRawSample("ses_25ecc5a89fferms5vu4KQ9OwP3");
     const toolDefinition = createReadSessionTool({
+      locale: "zh",
       client: createSampleClient([sample]) as never,
       directory: ROOT,
     }) as unknown as ToolDefinition;
@@ -105,6 +108,7 @@ describe("sessions/read-session-tool", () => {
       ],
     });
     const toolDefinition = createReadSessionTool({
+      locale: "zh",
       client: createSampleClient([sample]) as never,
       directory: ROOT,
     }) as unknown as ToolDefinition;
@@ -125,16 +129,13 @@ describe("sessions/read-session-tool", () => {
     assert.match(result, /### Turn T2/);
     assert.match(result, /- User: user turn 2/);
     assert.doesNotMatch(result, /user turn 3/);
-    assert.match(result, /\.\.\. \[1 middle turn omitted in preview\] \.\.\./);
+    assert.match(result, /中间省略 1 个轮次/);
     assert.match(result, /### Turn T4/);
     assert.match(result, /- User: user turn 4/);
     assert.match(result, /### Turn T5/);
     assert.match(result, /### Turn T6/);
-    assert.match(result, /## Preview Notice/);
-    assert.match(
-      result,
-      /trimmed preview containing only selected user\/assistant messages/,
-    );
+    assert.match(result, /## 预览说明/);
+    assert.match(result, /精简预览/);
     assert.match(result, /mode "full"/);
     assert.match(result, new RegExp(sample.session.id));
   });
@@ -150,6 +151,7 @@ describe("sessions/read-session-tool", () => {
       ],
     });
     const toolDefinition = createReadSessionTool({
+      locale: "zh",
       client: createSampleClient([sample]) as never,
       directory: ROOT,
     }) as unknown as ToolDefinition;
@@ -179,6 +181,7 @@ describe("sessions/read-session-tool", () => {
       ],
     });
     const toolDefinition = createReadSessionTool({
+      locale: "zh",
       client: createSampleClient([sample]) as never,
       directory: ROOT,
     }) as unknown as ToolDefinition;
@@ -188,7 +191,7 @@ describe("sessions/read-session-tool", () => {
       { metadata: () => undefined },
     );
 
-    assert.match(result, /\.\.\. \[2 middle turns omitted in preview\] \.\.\./);
+    assert.match(result, /中间省略 2 个轮次/);
     assert.doesNotMatch(result, /middle user 3/);
     assert.doesNotMatch(result, /middle assistant 4/);
   });
@@ -219,6 +222,7 @@ describe("sessions/read-session-tool", () => {
       ],
     });
     const toolDefinition = createReadSessionTool({
+      locale: "zh",
       client: createSampleClient([sample]) as never,
       directory: ROOT,
     }) as unknown as ToolDefinition;
@@ -251,6 +255,7 @@ describe("sessions/read-session-tool", () => {
       ],
     });
     const toolDefinition = createReadSessionTool({
+      locale: "zh",
       client: createSampleClient([sample]) as never,
       directory: ROOT,
     }) as unknown as ToolDefinition;
@@ -268,6 +273,7 @@ describe("sessions/read-session-tool", () => {
 
   test("preview mode still rejects incomplete session ids before reading", async () => {
     const toolDefinition = createReadSessionTool({
+      locale: "zh",
       client: createSampleClient([]) as never,
       directory: ROOT,
     }) as unknown as ToolDefinition;

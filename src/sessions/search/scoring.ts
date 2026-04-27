@@ -5,7 +5,10 @@ import type {
 } from "@opencode-ai/sdk/v2";
 
 const DEFAULT_TRANSCRIPT_SAMPLE_LIMIT = 8;
-const UNTITLED_LABEL = "[untitled]";
+
+export function getUntitledLabel(): string {
+  return "[untitled]";
+}
 
 export type SearchMatchBucket = "title" | "slug-or-id" | "transcript";
 
@@ -208,7 +211,7 @@ export function getSessionLabel(session: GlobalSession): string {
     return slug;
   }
 
-  return UNTITLED_LABEL;
+  return getUntitledLabel();
 }
 
 export async function collectTranscriptMatches({

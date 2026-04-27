@@ -13,7 +13,7 @@ type ToolDefinition = {
 
 describe("sessions/find-session-tool", () => {
   test("describes read_session preview and full follow-up inspection", () => {
-    const toolDefinition = createFindSessionTool({
+    const toolDefinition = createFindSessionTool({ locale: "zh", 
       client: {
         experimental: {
           session: {
@@ -38,7 +38,7 @@ describe("sessions/find-session-tool", () => {
 
   test("returns an explanatory result for blank queries without searching", async () => {
     let listCalls = 0;
-    const toolDefinition = createFindSessionTool({
+    const toolDefinition = createFindSessionTool({ locale: "zh", 
       client: {
         experimental: {
           session: {
@@ -84,7 +84,7 @@ describe("sessions/find-session-tool", () => {
       },
     ];
     const metadataCalls: unknown[] = [];
-    const toolDefinition = createFindSessionTool({
+    const toolDefinition = createFindSessionTool({ locale: "zh", 
       client: {
         experimental: {
           session: {
@@ -142,7 +142,7 @@ describe("sessions/find-session-tool", () => {
   });
 
   test("renders no-result output", async () => {
-    const toolDefinition = createFindSessionTool({
+    const toolDefinition = createFindSessionTool({ locale: "zh", 
       client: {
         experimental: {
           session: {
@@ -177,7 +177,7 @@ describe("sessions/find-session-tool", () => {
   test("handles multi-keyword queries without returning context packs or metadata", async () => {
     let getCalls = 0;
     const metadataCalls: unknown[] = [];
-    const toolDefinition = createFindSessionTool({
+    const toolDefinition = createFindSessionTool({ locale: "zh", 
       client: {
         experimental: {
           session: {
@@ -247,7 +247,7 @@ describe("sessions/find-session-tool", () => {
       slug: `many-${index}`,
       time: { updated: 100 - index, archived: 0 },
     }));
-    const toolDefinition = createFindSessionTool({
+    const toolDefinition = createFindSessionTool({ locale: "zh", 
       client: {
         experimental: {
           session: {

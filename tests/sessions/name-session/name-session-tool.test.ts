@@ -34,6 +34,7 @@ describe("sessions/name-session-tool", () => {
         },
       } as never,
       directory: ROOT,
+      locale: "zh",
     }) as unknown as ToolDefinition;
 
     const result = await toolDefinition.execute(
@@ -78,6 +79,7 @@ describe("sessions/name-session-tool", () => {
         },
       } as never,
       directory: ROOT,
+      locale: "zh",
     }) as unknown as ToolDefinition;
 
     const result = await toolDefinition.execute(
@@ -115,6 +117,7 @@ describe("sessions/name-session-tool", () => {
         },
       } as never,
       directory: ROOT,
+      locale: "zh",
     }) as unknown as ToolDefinition;
 
     const result = await toolDefinition.execute(
@@ -148,6 +151,7 @@ describe("sessions/name-session-tool", () => {
         },
       } as never,
       directory: ROOT,
+      locale: "zh",
     }) as unknown as ToolDefinition;
 
     const result = await toolDefinition.execute(
@@ -198,6 +202,7 @@ describe("sessions/name-session-tool", () => {
         },
       } as never,
       directory: ROOT,
+      locale: "zh",
     }) as unknown as ToolDefinition;
 
     await toolDefinition.execute(

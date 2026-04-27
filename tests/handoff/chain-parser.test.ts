@@ -191,7 +191,7 @@ describe("handoff/chain-parser", () => {
   // 4.8 handoff 注入测试：有上游链条 vs 无上游场景
   describe("buildHandoffInjectionText", () => {
     test("with upstream chain, includes session ID and task flow with labels", () => {
-      const text = buildHandoffInjectionText({
+      const text = buildHandoffInjectionText({ locale: "zh", 
         sessionID: "ses_CCC",
         handoffID: "ses_CCC-1",
         upstreamChain: [
@@ -211,7 +211,7 @@ describe("handoff/chain-parser", () => {
     });
 
     test("without upstream chain, includes only real current handoff source data", () => {
-      const text = buildHandoffInjectionText({
+      const text = buildHandoffInjectionText({ locale: "zh", 
         sessionID: "ses_CCC",
         handoffID: "ses_CCC-1",
         upstreamChain: [],
@@ -227,7 +227,7 @@ describe("handoff/chain-parser", () => {
     });
 
     test("includes resolved predecessor sessions as lookup pointers", () => {
-      const text = buildHandoffInjectionText({
+      const text = buildHandoffInjectionText({ locale: "zh", 
         sessionID: "ses_HOME",
         handoffID: "ses_HOME-3",
         upstreamChain: [],
@@ -243,7 +243,7 @@ describe("handoff/chain-parser", () => {
     });
 
     test("with upstream chain containing Chinese labels", () => {
-      const text = buildHandoffInjectionText({
+      const text = buildHandoffInjectionText({ locale: "zh", 
         sessionID: "ses_CCC",
         handoffID: "ses_CCC-1",
         upstreamChain: [
@@ -260,7 +260,7 @@ describe("handoff/chain-parser", () => {
     });
 
     test("injection text starts and ends with delimiter", () => {
-      const text = buildHandoffInjectionText({
+      const text = buildHandoffInjectionText({ locale: "zh", 
         sessionID: "ses_CCC",
         handoffID: "ses_CCC-1",
         upstreamChain: [],

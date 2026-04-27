@@ -1,17 +1,21 @@
 import { tool } from "@opencode-ai/plugin";
 import type { OpencodeClient } from "@opencode-ai/sdk/v2";
 import { searchSessions, type SearchResultSet } from "./search";
+import type { Locale } from "../i18n/types";
+import { t } from "../i18n";
 
 export const FIND_SESSION_TOOL_NAME = "find_session";
 
 type FindSessionToolParams = {
   client: OpencodeClient;
   directory: string;
+  locale: Locale;
 };
 
 export function createFindSessionTool({
   client,
   directory,
+  locale,
 }: FindSessionToolParams) {
   return tool({
     description:
@@ -28,7 +32,7 @@ export function createFindSessionTool({
       const normalizedQuery = query.trim();
 
       if (!normalizedQuery) {
-        return renderEmptyQueryResult();
+        return renderEmptyQueryResult(locale);
       }
 
       const resultSet = await searchSessions({
@@ -38,40 +42,41 @@ export function createFindSessionTool({
         resultLimit: Number.POSITIVE_INFINITY,
       });
 
-      return renderFindSessionResults(resultSet);
+      return renderFindSessionResults(locale, resultSet);
     },
   });
 }
 
-function renderEmptyQueryResult(): string {
+function renderEmptyQueryResult(locale: Locale): string {
   return [
     "# Session Search Results",
     "",
-    "No query provided. Call `find_session` with a non-empty `query` keyword.",
+    t(locale, "tool.find_session.empty_query"),
   ].join("\n");
 }
 
-function renderFindSessionResults(resultSet: SearchResultSet): string {
+function renderFindSessionResults(
+  locale: Locale,
+  resultSet: SearchResultSet,
+): string {
   if (resultSet.results.length === 0) {
     return [
       "# Session Search Results",
       "",
-      `Query: \`${escapeCodeSpan(resultSet.query)}\``,
-      `Window: recent ${resultSet.scanned} non-archived sessions`,
-      "Results: 0",
+      `${t(locale, "tool.find_session.query_label")} \`${escapeCodeSpan(resultSet.query)}\``,
+      `${t(locale, "tool.find_session.window_label")} ${resultSet.scanned} non-archived sessions`,
+      `${t(locale, "tool.find_session.results_label")} 0`,
       "",
-      "No matching sessions found.",
-      "",
-      "Try a more specific or different query.",
+      t(locale, "tool.find_session.no_results"),
     ].join("\n");
   }
 
   const lines = [
     "# Session Search Results",
     "",
-    `Query: \`${escapeCodeSpan(resultSet.query)}\``,
-    `Window: recent ${resultSet.scanned} non-archived sessions`,
-    `Results: ${resultSet.results.length}`,
+    `${t(locale, "tool.find_session.query_label")} \`${escapeCodeSpan(resultSet.query)}\``,
+    `${t(locale, "tool.find_session.window_label")} ${resultSet.scanned} non-archived sessions`,
+    `${t(locale, "tool.find_session.results_label")} ${resultSet.results.length}`,
     "",
     "| Session ID | Label | Updated At | Match |",
     "| --- | --- | --- | --- |",
@@ -83,10 +88,7 @@ function renderFindSessionResults(resultSet: SearchResultSet): string {
     );
   }
 
-  lines.push(
-    "",
-    'To inspect a candidate, call `read_session` with the complete Session ID and `mode: "preview"` for a trimmed message preview; if relevant, call `read_session` again with `mode: "full"` for the complete context pack.',
-  );
+  lines.push("", t(locale, "tool.find_session.footer_hint"));
 
   return lines.join("\n");
 }

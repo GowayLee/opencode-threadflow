@@ -1,3 +1,4 @@
+import type { Locale } from "../i18n/types";
 import type { OpencodeClient } from "@opencode-ai/sdk/v2";
 import {
   buildHandoffInjectionText,
@@ -17,10 +18,12 @@ export async function buildHandoffCommandContextText({
   client,
   directory,
   sessionID,
+  locale,
 }: {
   client: OpencodeClient;
   directory: string;
   sessionID: string;
+  locale: Locale;
 }): Promise<string> {
   let upstreamChain: ChainEntry[] = [];
   let messages: HandoffMessageLike[] = [];
@@ -61,6 +64,7 @@ export async function buildHandoffCommandContextText({
   }
 
   return buildHandoffInjectionText({
+    locale,
     sessionID,
     handoffID,
     upstreamChain,

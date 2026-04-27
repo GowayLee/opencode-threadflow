@@ -19,7 +19,7 @@ describe("handoff/command-context", () => {
       ],
     });
 
-    const text = await buildHandoffCommandContextText({
+    const text = await buildHandoffCommandContextText({ locale: "zh", 
       client: client as never,
       directory: ROOT,
       sessionID: "ses_HOME",
@@ -43,7 +43,7 @@ describe("handoff/command-context", () => {
       ],
     });
 
-    const text = await buildHandoffCommandContextText({
+    const text = await buildHandoffCommandContextText({ locale: "zh", 
       client: client as never,
       directory: ROOT,
       sessionID: "ses_HOME",
@@ -60,7 +60,7 @@ describe("handoff/command-context", () => {
       sessions: [sampleSession("ses_HOME", 50, [])],
     });
 
-    const text = await buildHandoffCommandContextText({
+    const text = await buildHandoffCommandContextText({ locale: "zh", 
       client: client as never,
       directory: ROOT,
       sessionID: "ses_HOME",

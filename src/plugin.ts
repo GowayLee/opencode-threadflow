@@ -1,20 +1,36 @@
 import type { Plugin } from "@opencode-ai/plugin";
 import { createOpencodeClient } from "@opencode-ai/sdk/v2";
-import { commands } from "./commands";
+import type { Locale } from "./i18n/types";
+import { DEFAULT_LOCALE, SUPPORTED_LOCALES } from "./i18n/types";
+import { createCommands } from "./commands";
 import { registerHandoffHooks } from "./handoff";
 import { registerSessionHooks, registerSessionTools } from "./sessions";
 
-export const ThreadflowPlugin: Plugin = async (input) => {
+function resolveLocale(options: Record<string, unknown> | undefined): Locale {
+  const value = options?.locale;
+  if (
+    typeof value === "string" &&
+    (SUPPORTED_LOCALES as readonly string[]).includes(value)
+  ) {
+    return value as Locale;
+  }
+  return DEFAULT_LOCALE;
+}
+
+export const ThreadflowPlugin: Plugin = async (input, options) => {
+  const locale = resolveLocale(options);
   const context = {
     client: createOpencodeClient({
       baseUrl: input.serverUrl.toString(),
       directory: input.directory,
     }),
     directory: input.directory,
+    locale,
   };
   const sessionTools = registerSessionTools(context);
   const sessionHooks = registerSessionHooks(context);
   const handoffHooks = registerHandoffHooks(context);
+  const commands = createCommands(locale);
 
   return {
     tool: sessionTools.tool,

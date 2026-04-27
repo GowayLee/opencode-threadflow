@@ -1,5 +1,6 @@
 import type { Part } from "@opencode-ai/sdk";
 import type { OpencodeClient } from "@opencode-ai/sdk/v2";
+import type { Locale } from "../i18n/types";
 import { NAME_SESSION_COMMAND_NAME } from "../commands/name-session";
 import { SEARCH_SESSION_COMMAND_NAME } from "../commands/session-search";
 import {
@@ -21,6 +22,7 @@ import { buildSessionSearchCommandParts } from "./search";
 type ThreadflowPluginContext = {
   client: OpencodeClient;
   directory: string;
+  locale: Locale;
 };
 
 type CommandInput = {
@@ -50,12 +52,25 @@ type ChatMessageOutput = {
 export function registerSessionTools({
   client,
   directory,
+  locale,
 }: ThreadflowPluginContext) {
   return {
     tool: {
-      [READ_SESSION_TOOL_NAME]: createReadSessionTool({ client, directory }),
-      [FIND_SESSION_TOOL_NAME]: createFindSessionTool({ client, directory }),
-      [NAME_SESSION_TOOL_NAME]: createNameSessionTool({ client, directory }),
+      [READ_SESSION_TOOL_NAME]: createReadSessionTool({
+        client,
+        directory,
+        locale,
+      }),
+      [FIND_SESSION_TOOL_NAME]: createFindSessionTool({
+        client,
+        directory,
+        locale,
+      }),
+      [NAME_SESSION_TOOL_NAME]: createNameSessionTool({
+        client,
+        directory,
+        locale,
+      }),
     },
     enabled: {
       [READ_SESSION_TOOL_NAME]: true,
@@ -68,6 +83,7 @@ export function registerSessionTools({
 export function registerSessionHooks({
   client,
   directory,
+  locale,
 }: ThreadflowPluginContext) {
   return {
     "command.execute.before": async (
@@ -80,6 +96,7 @@ export function registerSessionHooks({
             client,
             directory,
             sessionID: command.sessionID,
+            locale,
           }),
         );
         return;
@@ -109,6 +126,7 @@ export function registerSessionHooks({
         ...(messageInput.model ? { model: messageInput.model } : {}),
         ...(messageInput.variant ? { variant: messageInput.variant } : {}),
         parts: output.parts,
+        locale,
       });
     },
   };

@@ -32,6 +32,7 @@ describe("sessions/injector", () => {
 
     const client = createSampleClient([existingSession]);
     const injected = await buildSessionReferenceInjectionParts({
+      locale: "zh",
       client: client as never,
       directory: ROOT,
       parts: [
@@ -64,21 +65,22 @@ describe("sessions/injector", () => {
     );
     assert.match(
       (injected[3] as { text?: string }).text ?? "",
-      /start with a brief session-reference loading report/,
+      /简短的 session 引用加载报告/,
     );
     assert.match(
       (injected[3] as { text?: string }).text ?? "",
-      /Do not stop after the loading report/,
+      /不要在加载报告后停止/,
     );
     assert.match(
       (injected[3] as { text?: string }).text ?? "",
-      /Continue with the user's current request/,
+      /处理用户当前的请求/,
     );
   });
 
   test("does not inject anything without explicit references", async () => {
     const client = createSampleClient([]);
     const injected = await buildSessionReferenceInjectionParts({
+      locale: "zh",
       client: client as never,
       directory: ROOT,
       parts: [textPart("No explicit references here") as never],
@@ -122,6 +124,7 @@ describe("sessions/injector", () => {
     };
 
     const injectedCount = await injectSessionReferenceContext({
+      locale: "zh",
       client: client as never,
       directory: ROOT,
       sessionID: "ses_targetsession01",
@@ -175,18 +178,9 @@ describe("sessions/injector", () => {
       }>
     )?.[1];
     assert.equal(promptPart2?.type, "text");
-    assert.match(
-      promptPart2?.text ?? "",
-      /start with a brief session-reference loading report/,
-    );
-    assert.match(
-      promptPart2?.text ?? "",
-      /Do not stop after the loading report/,
-    );
-    assert.match(
-      promptPart2?.text ?? "",
-      /Continue with the user's current request/,
-    );
+    assert.match(promptPart2?.text ?? "", /简短的 session 引用加载报告/);
+    assert.match(promptPart2?.text ?? "", /不要在加载报告后停止/);
+    assert.match(promptPart2?.text ?? "", /处理用户当前的请求/);
   });
 
   // ── buildSessionReferenceFeedback tests ──

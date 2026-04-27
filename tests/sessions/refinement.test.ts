@@ -188,7 +188,7 @@ describe("sessions/refinement", () => {
       "Refine session pack renderer (ses_subtask01)",
     ]);
 
-    const rendered = renderContextPack({
+    const rendered = renderContextPack({ locale: "zh", 
       session: normalized.session,
       compressedTurns: reduction.compressedTurns,
       activitySummary: activityIndex,
@@ -231,7 +231,7 @@ describe("sessions/refinement", () => {
     const projectSample = await loadRawSample("ses_25f1d2e22ffeeau3rxS1D6je8x");
     const client = createSampleClient([handoffSample, projectSample]);
 
-    const handoffPack = await buildSessionContextPack({
+    const handoffPack = await buildSessionContextPack({ locale: "zh", 
       client: client as never,
       directory: ROOT,
       sessionID: handoffSample.session.id,
@@ -252,7 +252,7 @@ describe("sessions/refinement", () => {
     assert.doesNotMatch(handoffPack, /Omission Policy/);
     assert.doesNotMatch(handoffPack, /message id/i);
 
-    const projectPack = await buildSessionContextPack({
+    const projectPack = await buildSessionContextPack({ locale: "zh", 
       client: client as never,
       directory: ROOT,
       sessionID: projectSample.session.id,
@@ -337,7 +337,7 @@ describe("sessions/refinement", () => {
     };
 
     const client = createSampleClient([syntheticSession]);
-    const pack = await buildSessionContextPack({
+    const pack = await buildSessionContextPack({ locale: "zh", 
       client: client as never,
       directory: ROOT,
       sessionID: "ses_syntheticpack01",
