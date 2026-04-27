@@ -108,7 +108,7 @@
 - 不要把 `name_session` 扩成跨 session 重命名器，或顺手修改 session 内容。
 - 不要因为 `read_session` 支持 `preview` 就把显式 `@@ses_...` 注入自动降级成 preview。
 - 不要给 `/search-session` 加额外解释、前后缀或重排表格。
-- 不要把 handoff draft 中提到的 session 线索当成当前轮的隐式引用触发器。
+- 不要把 handoff note 中提到的 session 线索当成当前轮的隐式引用触发器。
 - 不要把 derived 样本和真实实现混为一谈。
 - 不要把本地未跟踪的 `openspec/` 内容当成仓库真实状态，或通过改动归档 OpenSpec 记录来伪造当前状态。
 

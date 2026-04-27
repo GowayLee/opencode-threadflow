@@ -1,8 +1,7 @@
 import type { GlobalSession, OpencodeClient } from "@opencode-ai/sdk/v2";
 
 const HANDOFF_ID_LINE_RE =
-  /^\[handoff-id\]:\s+(ses_[A-Za-z0-9]+)-([1-9]\d*)\s*$/gm;
-const DEFAULT_PREDECESSOR_SCAN_LIMIT = 200;
+  /^\[handoff-id\]:\s+(?:(hdf([A-Za-z0-9]+))|(ses_[A-Za-z0-9]+))-([1-9]\d*)\s*$/gm;
 
 export interface HandoffIDEntry {
   id: string;
@@ -42,13 +41,14 @@ export function extractHandoffIDsFromText(
   let match: RegExpExecArray | null;
 
   while ((match = re.exec(text)) !== null) {
-    const sessionID = match[1]!;
+    const idPrefix = match[1] ?? match[3]!;
+    const sessionID = match[2] ? `ses_${match[2]}` : match[3]!;
     if (sessionID !== currentSessionID) {
       continue;
     }
 
-    const sequence = Number.parseInt(match[2]!, 10);
-    const id = `${sessionID}-${sequence}`;
+    const sequence = Number.parseInt(match[4]!, 10);
+    const id = `${idPrefix}-${sequence}`;
     entries.set(id, { id, sessionID, sequence });
   }
 
@@ -61,13 +61,10 @@ export function extractHandoffIDsFromMessages(
 ): HandoffIDEntry[] {
   const entries = new Map<string, HandoffIDEntry>();
 
-  for (const message of messages) {
-    for (const text of getNonSyntheticTextParts(message)) {
-      for (const entry of extractHandoffIDsFromText(text, currentSessionID)) {
+  for (const message of messages)
+    for (const text of getNonSyntheticTextParts(message))
+      for (const entry of extractHandoffIDsFromText(text, currentSessionID))
         entries.set(entry.id, entry);
-      }
-    }
-  }
 
   return [...entries.values()].sort((a, b) => a.sequence - b.sequence);
 }
@@ -82,7 +79,13 @@ export function generateNextHandoffID(
     0,
   );
 
-  return `${currentSessionID}-${maxSequence + 1}`;
+  return `${toHandoffIDPrefix(currentSessionID)}-${maxSequence + 1}`;
+}
+
+export function toHandoffIDPrefix(sessionID: string): string {
+  return sessionID.startsWith("ses_")
+    ? `hdf${sessionID.slice(4)}`
+    : `hdf${sessionID}`;
 }
 
 export async function resolvePredecessorSessions({
@@ -98,18 +101,14 @@ export async function resolvePredecessorSessions({
 }): Promise<HandoffPredecessorResolution> {
   const uniqueHandoffIDs = Array.from(new Set(handoffIDs));
   const matches = new Map<string, string[]>();
-  for (const handoffID of uniqueHandoffIDs) {
-    matches.set(handoffID, []);
-  }
+  for (const handoffID of uniqueHandoffIDs) matches.set(handoffID, []);
 
-  if (uniqueHandoffIDs.length === 0) {
+  if (uniqueHandoffIDs.length === 0)
     return { resolved: [], unresolved: [], ambiguous: [] };
-  }
 
   const sessionsResponse = await client.experimental.session.list({
     directory,
     archived: false,
-    limit: DEFAULT_PREDECESSOR_SCAN_LIMIT,
   });
   const sessions = [...(sessionsResponse.data ?? [])]
     .filter((session) => !session.time.archived)
@@ -122,15 +121,11 @@ export async function resolvePredecessorSessions({
       directory,
       session,
     });
-    if (!firstUserText) {
-      continue;
-    }
+    if (!firstUserText) continue;
 
-    for (const handoffID of uniqueHandoffIDs) {
-      if (containsExactHandoffIDMarker(firstUserText, handoffID)) {
+    for (const handoffID of uniqueHandoffIDs)
+      if (containsExactHandoffIDMarker(firstUserText, handoffID))
         matches.get(handoffID)!.push(session.id);
-      }
-    }
   }
 
   const resolved: HandoffPredecessorSource[] = [];
@@ -139,13 +134,10 @@ export async function resolvePredecessorSessions({
 
   for (const handoffID of uniqueHandoffIDs) {
     const sessionIDs = matches.get(handoffID) ?? [];
-    if (sessionIDs.length === 1) {
+    if (sessionIDs.length === 1)
       resolved.push({ sessionID: sessionIDs[0]!, handoffID });
-    } else if (sessionIDs.length > 1) {
-      ambiguous.push({ handoffID, sessionIDs });
-    } else {
-      unresolved.push(handoffID);
-    }
+    else if (sessionIDs.length > 1) ambiguous.push({ handoffID, sessionIDs });
+    else unresolved.push(handoffID);
   }
 
   return { resolved, unresolved, ambiguous };
@@ -194,14 +186,10 @@ async function getFirstUserMessageText({
   const messages = (messagesResponse.data ?? []) as HandoffMessageLike[];
 
   for (const message of messages) {
-    if (!isUserMessage(message)) {
-      continue;
-    }
+    if (!isUserMessage(message)) continue;
 
     const text = getNonSyntheticTextParts(message).join("\n").trim();
-    if (text) {
-      return text;
-    }
+    if (text) return text;
   }
 
   return "";

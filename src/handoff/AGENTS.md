@@ -38,7 +38,7 @@ src/handoff/
 
 - `command-context.ts` 是 plugin handoff hook 的领域入口；`plugin.ts` 只调用它并附加 synthetic part。
 - `[handoff-source-chain]:` 只表达线性任务流，不承载 handoff-id、predecessor sessions 或 DAG 分叉信息。
-- `[handoff-id]: <current-session-id>-n` 标识当前 session 中的一次 handoff draft，不是 child session ID。
+- `[handoff-id]: hdf<current-session-id 中 ses_ 之后的 ID 串>-n` 标识当前 session 中的一次 handoff note，不是 child session ID。
 - predecessor sessions 只作为 `read_session` lookup pointer，不作为事实摘要。
 - 子会话反查只匹配候选 session 的首个非 synthetic user message 中完整 `[handoff-id]: ...` marker。
 - runtime synthetic context 只输出真实运行时数据，不注入 fake concrete session ID 示例。

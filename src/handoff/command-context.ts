@@ -73,14 +73,11 @@ export function extractFirstUpstreamChain(
   messages: HandoffMessageLike[],
   currentSessionID: string,
 ): ChainEntry[] {
-  for (const message of messages) {
+  for (const message of messages)
     for (const text of getNonSyntheticTextParts(message)) {
       const upstreamChain = extractUpstreamChain(text, currentSessionID);
-      if (upstreamChain.length > 0) {
-        return upstreamChain;
-      }
+      if (upstreamChain.length > 0) return upstreamChain;
     }
-  }
 
   return [];
 }

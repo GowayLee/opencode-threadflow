@@ -10,11 +10,11 @@ describe("handoff/command-context", () => {
         sampleSession("ses_HOME", 50, [
           message(
             "assistant",
-            "[handoff-source-chain]: ses_ROOT Root work; ses_HOME Home work\n[handoff-id]: ses_HOME-1",
+            "[handoff-source-chain]: ses_ROOT Root work; ses_HOME Home work\n[handoff-id]: hdfHOME-1",
           ),
         ]),
         sampleSession("ses_CHILD", 40, [
-          message("user", "[handoff-id]: ses_HOME-1\nContinue work"),
+          message("user", "[handoff-id]: hdfHOME-1\nContinue work"),
         ]),
       ],
     });
@@ -26,10 +26,10 @@ describe("handoff/command-context", () => {
     });
 
     assert.match(text, /当前 session ID: `ses_HOME`/);
-    assert.match(text, /本次 handoff ID: `ses_HOME-2`/);
+    assert.match(text, /本次 handoff ID: `hdfHOME-2`/);
     assert.match(text, /上游任务流: `ses_ROOT` Root work/);
     assert.match(text, /已解析前序子会话/);
-    assert.match(text, /- `ses_CHILD` via `ses_HOME-1`/);
+    assert.match(text, /- `ses_CHILD` via `hdfHOME-1`/);
     assert.doesNotMatch(text, /未解析前序 handoff/);
   });
 
@@ -49,7 +49,7 @@ describe("handoff/command-context", () => {
       sessionID: "ses_HOME",
     });
 
-    assert.match(text, /本次 handoff ID: `ses_HOME-2`/);
+    assert.match(text, /本次 handoff ID: `hdfHOME-2`/);
     assert.match(text, /未解析前序 handoff/);
     assert.match(text, /- `ses_HOME-1`/);
   });
@@ -67,7 +67,7 @@ describe("handoff/command-context", () => {
     });
 
     assert.match(text, /当前 session ID: `ses_HOME`/);
-    assert.match(text, /本次 handoff ID: `ses_HOME-1`/);
+    assert.match(text, /本次 handoff ID: `hdfHOME-1`/);
     assert.doesNotMatch(text, /上游任务流/);
     assert.doesNotMatch(text, /未解析前序 handoff/);
     assert.ok(text.startsWith("---\n"));

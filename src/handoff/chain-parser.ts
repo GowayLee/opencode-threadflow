@@ -26,13 +26,10 @@ export function parseChainMarker(payload: string): ChainEntry[] {
   const matches: Array<{ id: string; index: number }> = [];
   const re = new RegExp(SESSION_ID_RE.source, "g");
   let m: RegExpExecArray | null;
-  while ((m = re.exec(payload)) !== null) {
+  while ((m = re.exec(payload)) !== null)
     matches.push({ id: m[0], index: m.index });
-  }
 
-  if (matches.length === 0) {
-    return [];
-  }
+  if (matches.length === 0) return [];
 
   const entries: ChainEntry[] = [];
 
@@ -41,11 +38,9 @@ export function parseChainMarker(payload: string): ChainEntry[] {
     const next = matches[i + 1];
 
     let label: string;
-    if (next) {
+    if (next)
       label = payload.slice(current.index + current.id.length, next.index);
-    } else {
-      label = payload.slice(current.index + current.id.length);
-    }
+    else label = payload.slice(current.index + current.id.length);
 
     label = label
       .replace(LEADING_SEPARATORS_RE, "")
@@ -102,9 +97,7 @@ export function buildHandoffInjectionText(params: {
   ];
 
   lines.push(`当前 session ID: \`${sessionID}\``);
-  if (handoffID) {
-    lines.push(`本次 handoff ID: \`${handoffID}\``);
-  }
+  if (handoffID) lines.push(`本次 handoff ID: \`${handoffID}\``);
 
   if (hasUpstream) {
     lines.push(`上游任务流: ${formatChainForInjection(upstreamChain)}`);
@@ -112,10 +105,11 @@ export function buildHandoffInjectionText(params: {
   }
 
   if (predecessorSources.length > 0) {
-    lines.push("已解析前序子会话:");
-    for (const source of predecessorSources) {
+    lines.push(
+      "已解析前序子会话（`via` 后的 handoff-id 指向 transcript 中对应 handoff note，用于生成子会话标签）:",
+    );
+    for (const source of predecessorSources)
       lines.push(`- \`${source.sessionID}\` via \`${source.handoffID}\``);
-    }
     lines.push(
       "这些前序子会话仅是可通过 `read_session` 回看的 source pointer，不是事实摘要。",
     );
@@ -123,9 +117,8 @@ export function buildHandoffInjectionText(params: {
 
   if (unresolvedHandoffIDs.length > 0) {
     lines.push("未解析前序 handoff:");
-    for (const unresolvedID of unresolvedHandoffIDs) {
+    for (const unresolvedID of unresolvedHandoffIDs)
       lines.push(`- \`${unresolvedID}\``);
-    }
     lines.push("不要为未解析 handoff 编造子会话 ID。");
   }
 
@@ -148,9 +141,7 @@ export function extractUpstreamChain(
   const markerMatch = payload.match(
     /^\s*\[handoff-source-chain\]:\s+([^\r\n]+)(?:\r?\n|$)/,
   );
-  if (!markerMatch) {
-    return [];
-  }
+  if (!markerMatch) return [];
   const chain = parseChainMarker(markerMatch[1]!);
   return chain.filter((entry) => entry.id !== currentSessionID);
 }
