@@ -42,12 +42,39 @@ Source session reference:
 - At the top of your draft, include the actual session ID and note that the next agent can call \`read_session\` to get full context on demand.
 - The receiving agent should use the draft summary first, and only fall back to \`read_session\` for details not covered in the draft.
 
+Task flow marker:
+- You MUST output a \`[handoff-source-chain]:\` marker as the very first line of your draft (before any headings or blank lines).
+- The marker line format: \`[handoff-source-chain]: ses_ID label; ses_ID label; …\`
+- Each entry is \`ses_ID (space) label\`. Entries are separated by \`; \` (semicolon + space).
+- The session IDs MUST appear in chronological order (oldest first, current session last).
+- Labels MUST be short (≤ 15 words or equivalent characters) and MUST NOT contain the semicolon character \`;\`.
+- For upstream sessions: you MUST copy their labels verbatim from the plugin-injected context — do not rewrite, translate, or modify them.
+- For the current session: you MUST generate a label yourself based on your own summary of the work done in this session. Do not call any extra tools for this — use your own understanding.
+- If there is no upstream task flow, the marker line still MUST appear with only the current session ID and its label.
+
+Task flow section:
+- When the command context includes "上游任务流" (upstream task flow) information, you MUST include a \`### 任务流\` section in your draft.
+- The section format uses arrow (\`→\`) to connect sessions, each shown as \`\` \`ses_ID\` label \`\`:
+  \`\`\`
+  \`ses_X\` label1 → \`ses_Y\` label2 → \`ses_Z\` label3
+  \`\`\`
+- After the arrow chain, include a reminder line: "后续 session 可通过 \`read_session\` 沿 session ID 逐级回溯完整任务意图。"
+- When there is NO upstream task flow, you MUST NOT output the \`### 任务流\` section. Instead, fall back to the existing \`> **源 session**: \\\`ses_...\\\` — 如需更多上下文，可调用 \\\`read_session\\\` 工具查看完整记录\` format.
+
 ---
 
 Use this exact structure:
 
+[handoff-source-chain]: <ses_ID label; ses_ID label; …>
+
 ## Handoff Draft
 
+<!-- 当命令上下文包含上游任务流信息时，使用以下任务流段： -->
+### 任务流
+\`ses_X\` label → \`ses_Y\` label → \`ses_Z\` label
+后续 session 可通过 \`read_session\` 沿 session ID 逐级回溯完整任务意图。
+
+<!-- 当不存在上游任务流时，使用以下源引用行替代 ### 任务流 段： -->
 > **源 session**: \`<session ID>\` — 如需更多上下文，可调用 \`read_session\` 工具查看完整记录
 
 ### 当前任务背景

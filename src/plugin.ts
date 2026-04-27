@@ -19,6 +19,10 @@ import {
 } from "./session-reference/read-session-tool";
 import { injectSessionReferenceContext } from "./session-reference/injector";
 import { buildSessionSearchCommandParts } from "./session-reference/search";
+import {
+  buildHandoffInjectionText,
+  extractUpstreamChain,
+} from "./session-reference/chain-parser";
 
 export const ThreadflowPlugin: Plugin = async (input) => {
   const sessionClient = createOpencodeClient({
@@ -76,15 +80,52 @@ export const ThreadflowPlugin: Plugin = async (input) => {
       }
 
       if (command.command === HANDOFF_COMMAND_NAME) {
+        let upstreamChain: Array<{ id: string; label: string }> = [];
+
+        try {
+          const messagesResponse = await sessionClient.session.messages({
+            directory: input.directory,
+            sessionID: command.sessionID,
+            limit: 50,
+          });
+          const messages = messagesResponse.data ?? [];
+
+          for (const msg of messages) {
+            const parts = (msg as { parts?: Part[] }).parts ?? [];
+            for (const part of parts) {
+              const typedPart = part as {
+                type?: string;
+                synthetic?: boolean;
+                text?: string;
+              };
+              if (typedPart.type !== "text" || typedPart.synthetic) {
+                continue;
+              }
+              const text = typedPart.text;
+              if (typeof text !== "string") {
+                continue;
+              }
+              upstreamChain = extractUpstreamChain(text, command.sessionID);
+              if (upstreamChain.length > 0) {
+                break;
+              }
+            }
+            if (upstreamChain.length > 0) {
+              break;
+            }
+          }
+        } catch {
+          // Fall through to existing behavior
+        }
+
+        const injectionText = buildHandoffInjectionText({
+          sessionID: command.sessionID,
+          upstreamChain,
+        });
+
         output.parts.push({
           type: "text",
-          text: [
-            "---",
-            "§ included by opencode-threadflow plugin",
-            "",
-            `This session ID: \`${command.sessionID}\``,
-            "---",
-          ].join("\n"),
+          text: injectionText,
           synthetic: true,
         } as unknown as Part);
         return;
