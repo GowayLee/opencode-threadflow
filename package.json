@@ -1,28 +1,41 @@
 {
   "name": "opencode-threadflow",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Thread flow plugin for opencode",
   "keywords": [
     "opencode",
     "plugin"
   ],
+  "homepage": "https://github.com/GowayLee/opencode-threadflow",
   "license": "MIT",
   "author": "Hauryn Lee",
+  "contributors": [
+    {
+      "name": "Hauryn Lee",
+      "email": "lihaoyuan0506@gmail.com",
+      "url": "https://github.com/GowayLee"
+    }
+  ],
   "packageManager": "bun@1.3.11",
   "type": "module",
   "main": "src/plugin.ts",
   "files": [
-    "src"
+    "src/**/*.ts"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git:gowaylee/opencode-threadflow"
+  },
   "scripts": {
-    "render:session-pack": "bun scripts/render-session-context-pack.mjs",
     "typecheck": "tsc --noEmit",
     "test": "bun test tests"
   },
   "dependencies": {
-    "@opencode-ai/plugin": "^1.4.7"
+    "@opencode-ai/plugin": "^1.14.29"
   },
   "devDependencies": {
-    "typescript": "^5.9.3"
-  }
+    "typescript": "^5.9.3",
+    "@types/bun": "latest"
+  },
+  "private": false
 }
