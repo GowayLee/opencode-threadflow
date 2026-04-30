@@ -42,6 +42,14 @@ And we've gone a step further beyond the [Amp Code Thread Map](https://ampcode.c
 
 _The design and implementation of this feature references the [opencode-handoff plugin](https://github.com/joshuadavidthomas/opencode-handoff). Thanks to [@Thosmas](https://github.com/joshuadavidthomas) for the contribution, which provided immense help._
 
+#### `/resume-work`: Resume Recent Work
+
+Use `/resume-work` to instantly load full context packs from your 5 most recent non-archived sessions into the current session. Zero parameters — the plugin discovers recent sessions by pure temporal locality and injects their complete context before the command template executes.
+
+The agent scans the injected context packs, summarizes recent work status (key decisions, current progress, unresolved issues), and indicates readiness to continue where you left off.
+
+_Under the hood, `/resume-work` is a thin composition of existing primitives: `find_session` (empty query → recent sessions) + `read_session` (full mode)._
+
 #### `/search-session`: Session Search
 
 Use `/search-session <keywords>` to find candidate sessions. The agent will output a Markdown table with copyable full session IDs. Supports space-separated multi-keyword queries, sorted by match quality.
@@ -55,6 +63,8 @@ _Since OpenCode doesn't seem to expose the ability to display plugin output dire
 Use `/name-session` to let the agent generate a structured title based on the current session's content and predefined rules, then call the `name_session` tool to complete the rename.
 
 The title protocol follows the `[Action][Target] Topic` format, designed to make historical sessions easier to rediscover in lists, search results, and handoff chains.
+
+> Why a user command instead of tweaking the built-in title generation prompt? A session's task focus shifts as the session progresses — a fixed title generated only at session start simply isn't flexible enough!
 
 ### Explicit Session Referencing (`@@ses_...`)
 
@@ -125,6 +135,26 @@ For local development and debugging, place the plugin in `~/.config/opencode/plu
 The agent will generate an editable handoff note.
 
 You can freely edit the note before sending. After copying it into a new session, the receiving agent will read the contextual information in the note, review recommended related files, and call `read_session` to review the source session if more detail is needed.
+
+### `/resume-work` — Resume Recent Work
+
+```
+/resume-work
+```
+
+The plugin automatically discovers your 5 most recent non-archived sessions (via `find_session` with empty query), loads each session's full context pack (via `read_session` in `full` mode), and injects them as synthetic text into the current turn.
+
+The agent will then:
+
+- Scan session titles for a high-level picture
+- Extract key decisions and progress from relevant session transcripts
+- Summarize recent work status concisely, grouped by work line or topic rather than listing each session one by one
+- Indicate readiness to continue from where recent work left off
+
+Edge cases:
+
+- If no recent non-archived sessions exist outside the current session, the agent states this and offers to help with the current request.
+- If some sessions fail to load, they are silently skipped with a failure note in the injected block.
 
 ### Task Flow Lineage Tracing & Forking
 
