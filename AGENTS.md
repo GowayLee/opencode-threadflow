@@ -102,6 +102,7 @@
 - `handoff` 输出必须保持可编辑 Markdown 草稿，不做自动新建 session 的前提假设。
 - `handoff` 命令执行前会由 `src/handoff/` 注入当前 session ID、handoff-id、上游任务流和 predecessor lookup pointer（如有），draft 顶部必须保留源 session 引用与 `read_session` 提示。
 - `openspec/` 已停止跟踪；只有在用户明确要求 OpenSpec 工作流时，才把它当成本地辅助工作区处理。
+- `src/` 目录结构、域命名、barrel export、plugin.ts 装配边界和新增目录流程遵循 `src/AGENTS.md` 中 `## STRUCTURAL CONVENTIONS` 的全部约束。新增域能力时，先读该节再动手。
 
 ## ANTI-PATTERNS (THIS PROJECT)
 

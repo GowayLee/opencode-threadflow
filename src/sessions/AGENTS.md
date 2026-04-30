@@ -64,6 +64,7 @@ src/sessions/
 - `buildSessionContextPack()` 输出应偏可读压缩 transcript，而不是自由摘要。
 - `buildSessionPreviewPack()` 只保留首尾窗口里的 user / assistant 正文，不带 Activity、工具调用或文件活动明细。
 - 显式 `@@ses_...` 引用注入继续使用完整 context pack，不因为 preview 存在而自动降级。
+- 目录结构、barrel 出口格式和 plugin.ts 装配边界遵循 `src/AGENTS.md` 中的 `## STRUCTURAL CONVENTIONS`。
 
 ## ANTI-PATTERNS
 

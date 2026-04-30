@@ -96,6 +96,63 @@ src/
 - 搜索逻辑已拆到 `sessions/search/`；入口、评分、渲染分文件维护。
 - sessions 输出中的 synthetic 标记和 metadata 是稳定协议，别随意改形状。
 
+## STRUCTURAL CONVENTIONS
+
+以下规约来自 `refactor-plugin-architecture` 重构的决策沉淀，为后续新增目录/领域模块提供约束。
+
+### 目录命名
+
+- 域目录使用**单字领域概念名**，无连字符，与 `commands/` 复数形式一致。
+- 正面例：`handoff/`、`sessions/`、`commands/`
+- 反面例：`session-reference/`（技术描述名，且语义与实际职责不匹配）
+
+### Barrel export 模式
+
+- 每个域目录 MUST 拥有 `index.ts` barrel，对外暴露 `registerXxxHooks(ctx)` 和/或 `registerXxxTools(ctx)` 工厂函数。
+- 工厂函数接受 `{ client, directory }` 上下文，返回插件片段（tool 注册对象、hook 函数等）。
+- `plugin.ts` 只调用这些工厂并组合返回结果，不关心域内部的 tool 名称、hook 分发逻辑、command name 匹配。
+- 示例签名：
+  - `registerXxxHooks(ctx) → { "command.execute.before": HookFn, "chat.message": HookFn }`
+  - `registerXxxTools(ctx) → { tool: {...}, enabled: {...} }`
+
+### plugin.ts 装配层约束
+
+- `plugin.ts` MUST 只做三件事：创建 client、调用域工厂、组合返回的插件片段。
+- `plugin.ts` MUST NOT：
+  - 内联任何领域逻辑（context 构造、文本拼接、Part 组装）
+  - 识别具体 command name（匹配逻辑留在域 hook 内部）
+  - 出现 `as unknown as Part`（类型绕过只允许在域内部）
+- plugin.ts 的 import 只来自 `./commands`、`./handoff`、`./sessions` 等顶层 barrel。
+
+### Hook 组合约定
+
+- 当多个域都提供同一 hook key（如 `"command.execute.before"`）时，plugin.ts 负责**顺序调用**各域的 hook 函数，而不是用 object spread 互相覆盖。
+- 每个域的 hook 函数内部自行判断 `command.command === XXX_NAME`，不匹配时 no-op。
+
+### Tool 注册聚合
+
+- 域的 `registerXxxTools` 同时返回 `tool` 对象和 `enabled` 对象，使 plugin.ts 能一行完成 tool 注册与启用：
+  ```ts
+  const sessionTools = registerSessionTools(ctx);
+  return {
+    tool: sessionTools.tool,
+    config: async (config) => {
+      config.tools = { ...config.tools, ...sessionTools.enabled };
+    },
+  };
+  ```
+- 新增 tool 只需在域内部修改 `registerXxxTools`，不再需要改 plugin.ts 的多处位置。
+
+### 新增域目录的参考流程
+
+1. 在 `src/` 下创建单字领域目录（如 `src/audit/`）
+2. 在目录内创建 `index.ts` barrel，导出 `registerAuditHooks(ctx)` / `registerAuditTools(ctx)`
+3. 在 `plugin.ts` 中增加一行 `import { registerAuditHooks } from "./audit"`，调用工厂并组合返回片段
+4. 更新 `src/AGENTS.md` 的 STRUCTURE、COMPONENTS、WHERE TO LOOK 和 SUBAGENT HIERARCHY
+5. 新增 `src/audit/AGENTS.md` 说明该域职责边界
+6. 更新根 `AGENTS.md` 的 CODE MAP
+7. `tests/` 下新建对应测试目录
+
 ## ANTI-PATTERNS
 
 - 不要把 search / injector / refinement 逻辑搬进 command 文件。

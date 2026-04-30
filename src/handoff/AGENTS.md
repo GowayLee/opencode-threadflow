@@ -39,6 +39,7 @@ src/handoff/
 ## CONVENTIONS
 
 - `index.ts` 是 plugin handoff hook 的领域入口；`plugin.ts` 只组合注册后的 hook，不内联 handoff command 逻辑。
+- 目录结构、barrel 出口格式和 plugin.ts 装配边界遵循 `src/AGENTS.md` 中的 `## STRUCTURAL CONVENTIONS`。
 - `[handoff-source-chain]:` 只表达线性任务流，不承载 handoff-id、predecessor sessions 或 DAG 分叉信息。
 - `[handoff-id]: hdf<current-session-id 中 ses_ 之后的 ID 串>-n` 标识当前 session 中的一次 handoff note，不是 child session ID。
 - predecessor sessions 只作为 `read_session` lookup pointer，不作为事实摘要。
