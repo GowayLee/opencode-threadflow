@@ -8,8 +8,8 @@ import {
   collectTranscriptMatches,
   compareSearchResults,
   compareSessions,
-} from "./scoring.js";
-import { renderSearchResults, normalizeResultLimit } from "./rendering.js";
+} from "./scoring";
+import { renderSearchResults, normalizeResultLimit } from "./rendering";
 import type { Locale } from "../../i18n/types";
 import { DEFAULT_LOCALE } from "../../i18n/types";
 import { t } from "../../i18n";
@@ -22,7 +22,7 @@ export type {
   SearchResult,
   SearchResultSet,
   SearchParams,
-} from "./scoring.js";
+} from "./scoring";
 
 export {
   compareSearchResults,
@@ -30,14 +30,14 @@ export {
   compareUpdatedAt,
   buildSearchResult,
   getSessionLabel,
-} from "./scoring.js";
+} from "./scoring";
 
 export {
   renderSearchResults,
   formatTimestamp,
   escapeTableCell,
   normalizeResultLimit,
-} from "./rendering.js";
+} from "./rendering";
 
 export async function searchSessions({
   client,

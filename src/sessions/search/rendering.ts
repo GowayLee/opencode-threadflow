@@ -1,5 +1,5 @@
-import type { SearchResult, SearchResultSet } from "./scoring.js";
-import { compareSearchResults } from "./scoring.js";
+import type { SearchResult, SearchResultSet } from "./scoring";
+import { compareSearchResults } from "./scoring";
 import type { Locale } from "../../i18n/types";
 import { DEFAULT_LOCALE } from "../../i18n/types";
 import { t } from "../../i18n";
