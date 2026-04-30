@@ -2,7 +2,7 @@
 
 ## OVERVIEW
 
-运行时代码目录。这里负责 OpenCode 插件入口、slash command 装配、handoff 领域运行时逻辑，以及 sessions 子系统的显式引用、用户侧搜索、agent 候选发现、`read_session` 分层输出与 session 标题命名。
+运行时代码目录。这里负责 OpenCode 插件入口、slash command 装配、handoff 领域运行时逻辑、resume-work 领域运行时逻辑，以及 sessions 子系统的显式引用、用户侧搜索、agent 候选发现、`read_session` 分层输出与 session 标题命名。
 
 ## STRUCTURE
 
@@ -13,12 +13,16 @@ src/
 │   ├── index.ts
 │   ├── handoff.ts
 │   ├── name-session.ts
+│   ├── resume-work.ts
 │   └── session-search.ts
 ├── handoff/
 │   ├── index.ts
 │   ├── chain-parser.ts
 │   ├── command-context.ts
 │   └── lineage.ts
+├── resume-work/
+│   ├── index.ts
+│   └── context-builder.ts
 └── sessions/
     ├── index.ts
     ├── hook-context.ts
@@ -36,36 +40,40 @@ src/
 
 ## COMPONENTS
 
-| 组件                            | 用途                                                 | 关键导出                                                                |
-| ------------------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------- |
-| `plugin.ts`                     | 创建 `createOpencodeClient`，装配 commands/tool/hook | `ThreadflowPlugin`, `default`                                           |
-| `commands/index.ts`             | 汇总 slash commands                                  | `commands`                                                              |
-| `commands/handoff.ts`           | `handoff` 草稿模板                                   | `HANDOFF_COMMAND_NAME`, `handoffCommand`                                |
-| `commands/name-session.ts`      | `/name-session` 标题协议与 tool 调用模板             | `NAME_SESSION_COMMAND_NAME`, `nameSessionCommand`                       |
-| `commands/session-search.ts`    | `/search-session` 的结果块协议                       | `SEARCH_SESSION_COMMAND_NAME`, `sessionSearchCommand`                   |
-| `handoff/index.ts`              | handoff 域 hook 注册入口                             | `registerHandoffHooks`                                                  |
-| `handoff/chain-parser.ts`       | handoff source-chain marker 解析与注入文本格式化     | `parseChainMarker`, `extractUpstreamChain`, `buildHandoffInjectionText` |
-| `handoff/command-context.ts`    | handoff 命令执行前上下文构造                         | `buildHandoffCommandContextText`                                        |
-| `handoff/lineage.ts`            | handoff-id 生成与 predecessor session resolution     | `generateNextHandoffID`, `resolvePredecessorSessions`                   |
-| `sessions/index.ts`             | sessions 域 tool 与 hook 注册入口                    | `registerSessionTools`, `registerSessionHooks`                          |
-| `sessions/hook-context.ts`      | `/name-session` 命令执行前上下文构造                 | `buildNameSessionHookContext`                                           |
-| `sessions/reference-parser.ts`  | 显式 `@@ses_...` 解析                                | `parseSessionReferences`                                                |
-| `sessions/search/index.ts`      | `/search-session` 与 `find_session` 共享搜索入口     | `searchSessions`, `buildSessionSearchCommandParts`                      |
-| `sessions/search/scoring.ts`    | 搜索 query 解析、IDF 排序与匹配分析                  | `parseSearchQuery`、`computeIdfWeights`、`compareSearchResults`         |
-| `sessions/search/rendering.ts`  | 搜索结果块渲染与 limit 归一化                        | `renderSearchResults`、`normalizeResultLimit`                           |
-| `sessions/injector.ts`          | 注入引用上下文到当前轮                               | `buildSessionReferenceInjectionParts`, `injectSessionReferenceContext`  |
-| `sessions/find-session-tool.ts` | `find_session` 候选搜索工具                          | `FIND_SESSION_TOOL_NAME`, `createFindSessionTool`                       |
-| `sessions/name-session-tool.ts` | `name_session` 当前 session 重命名工具               | `NAME_SESSION_TOOL_NAME`, `createNameSessionTool`                       |
-| `sessions/read-session-tool.ts` | `read_session` 工具                                  | `READ_SESSION_TOOL_NAME`, `createReadSessionTool`                       |
-| `sessions/refinement.ts`        | transcript 精炼与 `full` / `preview` 渲染            | `buildSessionContextPack`, `buildSessionPreviewPack`                    |
+| 组件                             | 用途                                                               | 关键导出                                                                |
+| -------------------------------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------- |
+| `plugin.ts`                      | 创建 `createOpencodeClient`，装配 commands/tool/hook               | `ThreadflowPlugin`, `default`                                           |
+| `commands/index.ts`              | 汇总 slash commands                                                | `commands`                                                              |
+| `commands/handoff.ts`            | `handoff` 草稿模板                                                 | `HANDOFF_COMMAND_NAME`, `handoffCommand`                                |
+| `commands/name-session.ts`       | `/name-session` 标题协议与 tool 调用模板                           | `NAME_SESSION_COMMAND_NAME`, `nameSessionCommand`                       |
+| `commands/session-search.ts`     | `/search-session` 的结果块协议                                     | `SEARCH_SESSION_COMMAND_NAME`, `sessionSearchCommand`                   |
+| `commands/resume-work.ts`        | `/resume-work` 命令名常量                                          | `RESUME_WORK_COMMAND_NAME`                                              |
+| `handoff/index.ts`               | handoff 域 hook 注册入口                                           | `registerHandoffHooks`                                                  |
+| `handoff/chain-parser.ts`        | handoff source-chain marker 解析与注入文本格式化                   | `parseChainMarker`, `extractUpstreamChain`, `buildHandoffInjectionText` |
+| `handoff/command-context.ts`     | handoff 命令执行前上下文构造                                       | `buildHandoffCommandContextText`                                        |
+| `handoff/lineage.ts`             | handoff-id 生成与 predecessor session resolution                   | `generateNextHandoffID`, `resolvePredecessorSessions`                   |
+| `resume-work/index.ts`           | resume-work 域 hook 注册入口，`command.execute.before` 注入编排    | `registerResumeWorkHooks`                                               |
+| `resume-work/context-builder.ts` | 近期 session 发现、full context pack 组装与 synthetic 注入文本渲染 | `buildResumeWorkContext`, `renderResumeWorkContext`                     |
+| `sessions/index.ts`              | sessions 域 tool 与 hook 注册入口                                  | `registerSessionTools`, `registerSessionHooks`                          |
+| `sessions/hook-context.ts`       | `/name-session` 命令执行前上下文构造                               | `buildNameSessionHookContext`                                           |
+| `sessions/reference-parser.ts`   | 显式 `@@ses_...` 解析                                              | `parseSessionReferences`                                                |
+| `sessions/search/index.ts`       | `/search-session` 与 `find_session` 共享搜索入口                   | `searchSessions`, `buildSessionSearchCommandParts`                      |
+| `sessions/search/scoring.ts`     | 搜索 query 解析、IDF 排序与匹配分析                                | `parseSearchQuery`、`computeIdfWeights`、`compareSearchResults`         |
+| `sessions/search/rendering.ts`   | 搜索结果块渲染与 limit 归一化                                      | `renderSearchResults`、`normalizeResultLimit`                           |
+| `sessions/injector.ts`           | 注入引用上下文到当前轮                                             | `buildSessionReferenceInjectionParts`, `injectSessionReferenceContext`  |
+| `sessions/find-session-tool.ts`  | `find_session` 候选搜索工具                                        | `FIND_SESSION_TOOL_NAME`, `createFindSessionTool`                       |
+| `sessions/name-session-tool.ts`  | `name_session` 当前 session 重命名工具                             | `NAME_SESSION_TOOL_NAME`, `createNameSessionTool`                       |
+| `sessions/read-session-tool.ts`  | `read_session` 工具                                                | `READ_SESSION_TOOL_NAME`, `createReadSessionTool`                       |
+| `sessions/refinement.ts`         | transcript 精炼与 `full` / `preview` 渲染                          | `buildSessionContextPack`, `buildSessionPreviewPack`                    |
 
 ## SUBAGENT HIERARCHY
 
 - `./AGENTS.md` - 运行时代码总览
 - `./handoff/AGENTS.md` - handoff 领域运行时说明
+- `./resume-work/AGENTS.md` - resume-work 领域运行时说明
 - `./sessions/AGENTS.md` - sessions 子系统说明
 
-在 `src/handoff/` 或 `src/sessions/` 内工作时，先读最近的子级 `AGENTS.md`。
+在 `src/handoff/`、`src/resume-work/` 或 `src/sessions/` 内工作时，先读最近的子级 `AGENTS.md`。
 
 ## WHERE TO LOOK
 
@@ -75,6 +83,7 @@ src/
 | 注册/调整命令               | `src/commands/index.ts`                                                                             |
 | 修改 handoff 文案           | `src/commands/handoff.ts`                                                                           |
 | 修改 handoff 运行时上下文   | `src/handoff/command-context.ts`、`src/handoff/chain-parser.ts`、`src/handoff/lineage.ts`           |
+| 修改 `/resume-work` 协议    | `src/commands/resume-work.ts`、`src/resume-work/`                                                   |
 | 修改 `/name-session` 协议   | `src/commands/name-session.ts`、`src/sessions/name-session-tool.ts`、`src/sessions/hook-context.ts` |
 | 修改 `/search-session` 协议 | `src/commands/session-search.ts`、`src/sessions/search/index.ts`                                    |
 | 修改 `find_session`         | `src/sessions/find-session-tool.ts`、`src/sessions/search/`                                         |
@@ -88,7 +97,7 @@ src/
 - `plugin.ts` 只负责装配与转发，不承载解析/搜索/精炼逻辑。
 - `commands/` 只放 slash command 模板与注册，命令层不复制搜索或 transcript 精炼实现。
 - `handoff/` 承载 handoff source-chain、handoff-id、predecessor resolution 与 command context 运行时逻辑；命令模板仍留在 `commands/handoff.ts`。
-- `command.execute.before` 负责三类注入：为 `handoff` 注入当前 session ID，为 `/name-session` 注入当前 session 元信息，为 `/search-session` 追加 synthetic 结果块。
+- `command.execute.before` 负责四类注入：为 `handoff` 注入当前 session ID，为 `/resume-work` 注入近期 session context pack，为 `/name-session` 注入当前 session 元信息，为 `/search-session` 追加 synthetic 结果块。
 - `chat.message` 只处理显式 `@@ses_...` 引用，不做隐式召回，并通过 `noReply` prompt 注入加载反馈指令。
 - `name_session` 只改当前 session 标题；命令模板负责生成符合 `[动作][对象] 主题` 协议的标题。
 - `find_session` 只返回候选 session，不读取 context pack，不自动触发引用注入。
@@ -122,7 +131,7 @@ src/
   - 内联任何领域逻辑（context 构造、文本拼接、Part 组装）
   - 识别具体 command name（匹配逻辑留在域 hook 内部）
   - 出现 `as unknown as Part`（类型绕过只允许在域内部）
-- plugin.ts 的 import 只来自 `./commands`、`./handoff`、`./sessions` 等顶层 barrel。
+- plugin.ts 的 import 只来自 `./commands`、`./handoff`、`./resume-work`、`./sessions` 等顶层 barrel。
 
 ### Hook 组合约定
 
@@ -163,3 +172,5 @@ src/
 - 不要接受部分 session ID、关键词或 URL 片段作为 `read_session` 输入。
 - 不要给 `/search-session` 增加额外解释或 fallback 文案。
 - 不要把 synthetic parts 当成普通用户消息处理。
+- 不要把 resume-work 的 session 发现/精炼逻辑塞进 `sessions/` 或 `handoff/`。
+- 不要让 `/resume-work` 接受关键词参数，也不要让 `find_session` 在空查询时走 resume-work 专有路径。
