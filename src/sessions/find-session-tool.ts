@@ -1,6 +1,7 @@
 import { tool } from "@opencode-ai/plugin";
 import type { OpencodeClient } from "@opencode-ai/sdk/v2";
 import { searchSessions, type SearchResultSet } from "./search";
+import { formatTimestamp, escapeTableCell } from "./search/rendering";
 import type { Locale } from "../i18n/types";
 import { t } from "../i18n";
 
@@ -23,17 +24,12 @@ export function createFindSessionTool({
     args: {
       query: tool.schema
         .string()
-        .min(1)
         .describe(
-          "Keyword query for recent sessions. Use spaces to combine separate clues, for example: `todo openspec implementation`.",
+          "Keyword query for recent sessions. Use spaces to combine separate clues, for example: `todo openspec implementation`. Pass an empty string to browse recent sessions ordered by update time.",
         ),
     },
     execute: async ({ query }) => {
-      const normalizedQuery = query.trim();
-
-      if (!normalizedQuery) {
-        return renderEmptyQueryResult(locale);
-      }
+      const normalizedQuery = query?.trim() ?? "";
 
       const resultSet = await searchSessions({
         client,
@@ -47,40 +43,58 @@ export function createFindSessionTool({
   });
 }
 
-function renderEmptyQueryResult(locale: Locale): string {
-  return [
-    "# Session Search Results",
-    "",
-    t(locale, "tool.find_session.empty_query"),
-  ].join("\n");
+function escapeCodeSpan(value: string): string {
+  return value.replaceAll("`", "\\`");
 }
 
 function renderFindSessionResults(
   locale: Locale,
   resultSet: SearchResultSet,
 ): string {
+  const isEmptyQuery = !resultSet.query.trim();
+
   if (resultSet.results.length === 0) {
-    return [
-      "# Session Search Results",
-      "",
-      `${t(locale, "tool.find_session.query_label")} \`${escapeCodeSpan(resultSet.query)}\``,
-      `${t(locale, "tool.find_session.window_label")} ${resultSet.scanned} ${t(locale, "tool.find_session.window_suffix")}`,
-      `${t(locale, "tool.find_session.results_label")} 0`,
-      "",
-      t(locale, "tool.find_session.no_results"),
-    ].join("\n");
+    const lines = ["# Session Search Results", ""];
+
+    if (isEmptyQuery) {
+      lines.push(
+        `${t(locale, "tool.find_session.window_label")} ${resultSet.scanned} ${t(locale, "tool.find_session.window_suffix")}`,
+        `${t(locale, "tool.find_session.results_label")} 0`,
+        "",
+        t(locale, "tool.find_session.no_recent_sessions"),
+      );
+    } else {
+      lines.push(
+        `${t(locale, "tool.find_session.query_label")} \`${escapeCodeSpan(resultSet.query)}\``,
+        `${t(locale, "tool.find_session.window_label")} ${resultSet.scanned} ${t(locale, "tool.find_session.window_suffix")}`,
+        `${t(locale, "tool.find_session.results_label")} 0`,
+        "",
+        t(locale, "tool.find_session.no_results"),
+      );
+    }
+
+    return lines.join("\n");
   }
 
-  const lines = [
-    "# Session Search Results",
-    "",
-    `${t(locale, "tool.find_session.query_label")} \`${escapeCodeSpan(resultSet.query)}\``,
-    `${t(locale, "tool.find_session.window_label")} ${resultSet.scanned} ${t(locale, "tool.find_session.window_suffix")}`,
+  const lines = ["# Session Search Results", ""];
+
+  if (isEmptyQuery) {
+    lines.push(
+      `${t(locale, "tool.find_session.window_label")} ${resultSet.scanned} ${t(locale, "tool.find_session.window_suffix")}`,
+    );
+  } else {
+    lines.push(
+      `${t(locale, "tool.find_session.query_label")} \`${escapeCodeSpan(resultSet.query)}\``,
+      `${t(locale, "tool.find_session.window_label")} ${resultSet.scanned} ${t(locale, "tool.find_session.window_suffix")}`,
+    );
+  }
+
+  lines.push(
     `${t(locale, "tool.find_session.results_label")} ${resultSet.results.length}`,
     "",
     `| ${t(locale, "tool.find_session.table.session_id")} | ${t(locale, "tool.find_session.table.label")} | ${t(locale, "tool.find_session.table.updated_at")} | ${t(locale, "tool.find_session.table.match")} |`,
     "| --- | --- | --- | --- |",
-  ];
+  );
 
   for (const result of resultSet.results) {
     lines.push(
@@ -91,16 +105,4 @@ function renderFindSessionResults(
   lines.push("", t(locale, "tool.find_session.footer_hint"));
 
   return lines.join("\n");
-}
-
-function formatTimestamp(timestamp: number): string {
-  return new Date(timestamp).toISOString();
-}
-
-function escapeTableCell(value: string): string {
-  return value.replaceAll("|", "\\|");
-}
-
-function escapeCodeSpan(value: string): string {
-  return value.replaceAll("`", "\\`");
 }

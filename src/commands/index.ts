@@ -3,6 +3,7 @@ import { t } from "../i18n";
 import { HANDOFF_COMMAND_NAME } from "./handoff";
 import { NAME_SESSION_COMMAND_NAME } from "./name-session";
 import { SEARCH_SESSION_COMMAND_NAME } from "./session-search";
+import { RESUME_WORK_COMMAND_NAME } from "./resume-work";
 
 export function createCommands(locale: Locale) {
   return {
@@ -17,6 +18,10 @@ export function createCommands(locale: Locale) {
     [SEARCH_SESSION_COMMAND_NAME]: {
       description: t(locale, "command.session_search.description"),
       template: t(locale, "command.session_search.template"),
+    },
+    [RESUME_WORK_COMMAND_NAME]: {
+      description: t(locale, "command.resume_work.description"),
+      template: t(locale, "command.resume_work.template"),
     },
   };
 }

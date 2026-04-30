@@ -8,6 +8,8 @@ import {
   collectTranscriptMatches,
   compareSearchResults,
   compareSessions,
+  getSessionLabel,
+  type SearchMatchBucket,
 } from "./scoring";
 import { renderSearchResults, normalizeResultLimit } from "./rendering";
 import type { Locale } from "../../i18n/types";
@@ -58,19 +60,22 @@ export async function searchSessions({
     sessionID: string;
     label: string;
     updatedAt: number;
-    match: "title" | "slug-or-id" | "transcript";
+    match: SearchMatchBucket;
     phraseMatched: boolean;
     matchScore: number;
   }[];
 }> {
   const parsedQuery = parseSearchQuery(query);
   const effectiveResultLimit = normalizeResultLimit(resultLimit);
-  if (!parsedQuery)
-    return {
-      query: "",
-      scanned: DEFAULT_SCAN_LIMIT,
-      results: [],
-    };
+  if (!parsedQuery) {
+    return searchSessionsByRecency({
+      client,
+      directory,
+      locale,
+      resultLimit: effectiveResultLimit,
+      query,
+    });
+  }
 
   const sessionsResponse = await client.experimental.session.list({
     directory,
@@ -141,6 +146,59 @@ export async function searchSessions({
     query,
     scanned: sessions.length,
     results: results.sort(compareSearchResults).slice(0, effectiveResultLimit),
+  };
+}
+
+async function searchSessionsByRecency({
+  client,
+  directory,
+  locale = DEFAULT_LOCALE,
+  resultLimit,
+  query,
+}: {
+  client: OpencodeClient;
+  directory: string;
+  locale?: Locale;
+  resultLimit: number;
+  query: string;
+}): Promise<{
+  query: string;
+  scanned: number;
+  results: {
+    sessionID: string;
+    label: string;
+    updatedAt: number;
+    match: "title" | "slug-or-id" | "transcript" | "recency";
+    phraseMatched: boolean;
+    matchScore: number;
+  }[];
+}> {
+  const sessionsResponse = await client.experimental.session.list({
+    directory,
+    archived: false,
+    limit: DEFAULT_SCAN_LIMIT,
+  });
+
+  const sessions = [...(sessionsResponse.data ?? [])]
+    .filter((s) => !s.time.archived)
+    .sort(compareSessions);
+
+  const results = sessions.map((session) => ({
+    sessionID: session.id,
+    label: getSessionLabel(session, locale),
+    updatedAt: session.time.updated,
+    match: "recency" as const,
+    phraseMatched: false,
+    matchScore: 0,
+  }));
+
+  return {
+    query,
+    scanned: sessions.length,
+    results:
+      resultLimit === Number.POSITIVE_INFINITY
+        ? results
+        : results.slice(0, resultLimit),
   };
 }
 

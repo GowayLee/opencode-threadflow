@@ -13,7 +13,11 @@ export function getUntitledLabel(locale: Locale = DEFAULT_LOCALE): string {
   return t(locale, "render.untitled");
 }
 
-export type SearchMatchBucket = "title" | "slug-or-id" | "transcript";
+export type SearchMatchBucket =
+  | "title"
+  | "slug-or-id"
+  | "transcript"
+  | "recency";
 
 export type SessionMessageLike = {
   parts: SessionPart[];
@@ -329,6 +333,8 @@ function getMatchBucketRank(bucket: SearchMatchBucket): number {
       return 1;
     case "transcript":
       return 2;
+    case "recency":
+      return 3;
   }
 }
 

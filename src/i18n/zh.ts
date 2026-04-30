@@ -256,8 +256,7 @@ Session 标题已更新。
 
   // ── Tools: find_session ────────────────────────────────────
 
-  "tool.find_session.empty_query":
-    "未提供 query。请使用非空的 `query` 关键词调用 `find_session`。",
+  "tool.find_session.no_recent_sessions": "未找到近期未归档 session。",
   "tool.find_session.no_results":
     "未找到匹配的 session。\n\n请尝试更具体或不同的 query。",
   "tool.find_session.query_label": "Query:",
@@ -311,6 +310,47 @@ Session 标题已更新。
   "hook.name_session.current_session_id": "当前 session ID: `{sessionID}`",
   "hook.name_session.current_title": "当前 session 标题: {title}",
   "hook.name_session.title_unavailable": "（未获取到标题）",
+
+  // ── Commands: resume-work ──────────────────────────────────
+
+  "command.resume_work.description":
+    "加载近期 session 上下文，快速恢复近期工作",
+
+  "command.resume_work.template": `阅读上方注入的 session context pack（标记为 synthetic），了解近期工作状态。
+
+每个 context pack 的结构：
+- ## Session — 标题、ID 和时间，快速判断该 session 在做什么
+- ## Transcript — 对话历史，从中提取关键决策和进展
+- ## Activity — 文件读写、命令执行、补丁列表，作为参考
+- ## Compressed Content — 截断内容，可能不完整
+先浏览各 session 的 ## Session 标题建立全局印象，再对相关 session 的 ## Transcript 提取决策和进展。
+
+你的任务：
+- 总结近期工作状态，包括关键决策、当前进展和未解决的问题。
+- 表明你已准备好从近期工作停止的地方继续推进。
+- 保持足够简洁，让用户快速了解「做了什么、状态如何」即可。
+
+输出组织形式（根据实际内容灵活决定，不套固定模板）：
+- 按工作线或主题线合并，而不是按 session 逐个罗列。
+- 如果多个 session 围绕同一工作线，自然会合成一条；如果有多个独立工作线，自然会分开。
+- 具体形式由你根据内容灵活选择。
+
+边界情况：
+- 如果注入的上下文仅包含一条系统消息说明未找到近期 session，直接说明未找到近期工作上下文，并表示愿意协助当前请求。
+- 如果部分 session 加载失败，不在总结中逐一列出失败项，在末尾加一行说明 N 个 session 加载失败，可通过 find_session 手动查找。`,
+
+  // ── Hooks: resume-work ─────────────────────────────────────
+
+  "hook.resume_work.no_recent_sessions":
+    "未找到当前 session 之外的近期非归档 session。没有可恢复的近期工作上下文。",
+
+  "hook.resume_work.session_not_found": "Session 未找到",
+
+  "hook.resume_work.session_load_failed": "加载 session 上下文失败",
+
+  "hook.resume_work.all_failed": "无法加载任何近期 session 的上下文：",
+
+  "hook.resume_work.partial_load_failures": "以下近期 session 未能加载：",
 
   // ── Render: placeholders & labels ──────────────────────────
 

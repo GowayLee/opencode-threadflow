@@ -256,8 +256,8 @@ Please check permissions and try again.`,
 
   // ── Tools: find_session ────────────────────────────────────
 
-  "tool.find_session.empty_query":
-    "No query provided. Call `find_session` with a non-empty `query` keyword.",
+  "tool.find_session.no_recent_sessions":
+    "No recent non-archived sessions found.",
   "tool.find_session.no_results":
     "No matching sessions found.\n\nTry a more specific or different query.",
   "tool.find_session.query_label": "Query:",
@@ -312,6 +312,50 @@ Please check permissions and try again.`,
   "hook.name_session.current_session_id": "Current session ID: `{sessionID}`",
   "hook.name_session.current_title": "Current session title: {title}",
   "hook.name_session.title_unavailable": "(title unavailable)",
+
+  // ── Commands: resume-work ──────────────────────────────────
+
+  "command.resume_work.description":
+    "Load recent session context to quickly resume recent work",
+
+  "command.resume_work.template": `Review the injected session context packs (marked synthetic) above to understand recent work status.
+
+Each context pack follows this structure:
+- ## Session — title, ID, and timestamp for quickly judging what the session is about
+- ## Transcript — conversation history; extract key decisions and progress from here
+- ## Activity — files read, commands run, patches applied; for reference
+- ## Compressed Content — truncated content that may be incomplete
+Start by scanning ## Session titles for a high-level picture, then extract decisions and progress from ## Transcript of relevant sessions.
+
+Your task:
+- Summarize the recent work status, including key decisions, current progress, and any unresolved issues.
+- Indicate your readiness to continue from where recent work left off.
+- Keep it concise enough for the user to quickly grasp what was done and where things stand.
+
+How to organize your output (shape it naturally, not to a fixed template):
+- Group by work line or topic rather than listing each session one by one.
+- If multiple sessions belong to the same work line, merge them into a single thread.
+- If there are several independent work lines, mention each briefly.
+- Choose the form that fits the actual content — be flexible.
+
+Edge cases:
+- If the injected context only contains a system message indicating no recent sessions were found, state this plainly and offer to help with the current request.
+- If some sessions failed to load, do not mention individual failures in the summary; add a single line at the end noting that N sessions could not be loaded and can be found manually via find_session.`,
+
+  // ── Hooks: resume-work ─────────────────────────────────────
+
+  "hook.resume_work.no_recent_sessions":
+    "No recent non-archived sessions were found outside the current session. There is no recent work context to resume.",
+
+  "hook.resume_work.session_not_found": "Session not found",
+
+  "hook.resume_work.session_load_failed": "Failed to load session context",
+
+  "hook.resume_work.all_failed":
+    "Unable to load context for any recent session:",
+
+  "hook.resume_work.partial_load_failures":
+    "The following recent sessions could not be loaded:",
 
   // ── Render: placeholders & labels ──────────────────────────
 

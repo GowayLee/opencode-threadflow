@@ -37,8 +37,22 @@ describe("sessions/find-session-tool", () => {
     );
   });
 
-  test("returns an explanatory result for blank queries without searching", async () => {
+  test("returns recent sessions for blank queries instead of an error", async () => {
     let listCalls = 0;
+    const sessions = [
+      {
+        id: "ses_recent03",
+        title: "Most recent",
+        slug: "most-recent",
+        time: { updated: 30, archived: 0 },
+      },
+      {
+        id: "ses_recent01",
+        title: "Older session",
+        slug: "older-session",
+        time: { updated: 10, archived: 0 },
+      },
+    ];
     const toolDefinition = createFindSessionTool({
       locale: "zh",
       client: {
@@ -46,7 +60,7 @@ describe("sessions/find-session-tool", () => {
           session: {
             list: async () => {
               listCalls += 1;
-              return { data: [] };
+              return { data: sessions };
             },
           },
         },
@@ -60,8 +74,12 @@ describe("sessions/find-session-tool", () => {
     const result = await toolDefinition.execute({ query: "   " });
 
     assert.match(result, /# Session Search Results/);
-    assert.match(result, /未提供 query/);
-    assert.equal(listCalls, 0);
+    assert.match(result, /窗口：近期/);
+    assert.match(result, /ses_recent03/);
+    assert.match(result, /ses_recent01/);
+    assert.match(result, /recency/);
+    assert.doesNotMatch(result, /未提供 query/);
+    assert.equal(listCalls, 1);
   });
 
   test("renders title, slug-or-id, and transcript matches with complete ids", async () => {

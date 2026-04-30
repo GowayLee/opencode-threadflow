@@ -4,6 +4,7 @@ import type { Locale } from "./i18n/types";
 import { DEFAULT_LOCALE, SUPPORTED_LOCALES } from "./i18n/types";
 import { createCommands } from "./commands";
 import { registerHandoffHooks } from "./handoff";
+import { registerResumeWorkHooks } from "./resume-work";
 import { registerSessionHooks, registerSessionTools } from "./sessions";
 
 function resolveLocale(options: Record<string, unknown> | undefined): Locale {
@@ -30,6 +31,7 @@ export const ThreadflowPlugin: Plugin = async (input, options) => {
   const sessionTools = registerSessionTools(context);
   const sessionHooks = registerSessionHooks(context);
   const handoffHooks = registerHandoffHooks(context);
+  const resumeWorkHooks = registerResumeWorkHooks(context);
   const commands = createCommands(locale);
 
   return {
@@ -45,8 +47,11 @@ export const ThreadflowPlugin: Plugin = async (input, options) => {
       };
     },
     "command.execute.before": async (command, output) => {
-      await sessionHooks["command.execute.before"](command, output);
-      await handoffHooks["command.execute.before"](command, output);
+      for (const hook of [sessionHooks, handoffHooks, resumeWorkHooks].map(
+        (h) => h["command.execute.before"],
+      )) {
+        await hook(command, output);
+      }
     },
     "chat.message": sessionHooks["chat.message"],
   };
