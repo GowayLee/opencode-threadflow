@@ -92,6 +92,8 @@ Agent 可调用 `find_session` tool 搜索最近的非归档 session。与 `/sea
 | `full`（默认） | 获取完整上下文 | 可读的压缩 transcript + 活动汇总 + 文件/命令/补丁活动记录                |
 | `preview`      | 快速候选判别   | session 元信息 + 最早 2 个有效对话轮次 + 最近 3 个有效对话轮次的消息正文 |
 
+当目标 session 存在 handoff 标记时，context pack 末尾追加 `## Session Flow` section — 呈现上游任务链路、当前 session 角色、以及按 handoff-id 分组的分支信息。
+
 `read_session` 只接受完整 session ID，输出的 context pack 基于纯代码规则压缩(不依赖 Agent 自由总结)。
 
 #### `name_session`: 重命名当前 session

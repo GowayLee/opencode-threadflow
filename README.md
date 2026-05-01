@@ -92,6 +92,8 @@ Accepts a full `ses_...` identifier and provides two output modes:
 | `full` (default) | Retrieve full context      | Readable compressed transcript + activity summary + file/command/patch activity logs |
 | `preview`        | Quick candidate evaluation | Session metadata + message bodies from the first 2 and last 3 valid dialogue turns   |
 
+When the target session has handoff markers, a `## Session Flow` section is appended — showing upstream chain, current role, and handoff branches grouped by handoff-id.
+
 `read_session` only accepts complete session IDs. The output context pack is compressed via pure code-based rules (no reliance on agent free-form summarization).
 
 #### `name_session`: Rename Current Session
