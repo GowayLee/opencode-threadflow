@@ -88,7 +88,7 @@ describe("handoff/lineage", () => {
       });
 
       assert.deepEqual(result.resolved, [
-        { sessionID: "ses_CHILD", handoffID: "hdfHOME-1" },
+        { sessionID: "ses_CHILD", handoffID: "hdfHOME-1", title: "ses_CHILD" },
       ]);
       assert.deepEqual(result.unresolved, ["hdfHOME-2", "hdfHOME-3"]);
       assert.deepEqual(result.ambiguous, []);
@@ -109,7 +109,11 @@ describe("handoff/lineage", () => {
       });
 
       assert.deepEqual(result.resolved, [
-        { sessionID: "ses_LEGACY_CHILD", handoffID: "ses_HOME-1" },
+        {
+          sessionID: "ses_LEGACY_CHILD",
+          handoffID: "ses_HOME-1",
+          title: "ses_LEGACY_CHILD",
+        },
       ]);
       assert.deepEqual(result.unresolved, []);
       assert.deepEqual(result.ambiguous, []);
@@ -131,15 +135,37 @@ describe("handoff/lineage", () => {
       assert.deepEqual(result.resolved, []);
       assert.deepEqual(result.unresolved, []);
       assert.deepEqual(result.ambiguous, [
-        { handoffID: "hdfHOME-1", sessionIDs: ["ses_CHILD_A", "ses_CHILD_B"] },
+        {
+          handoffID: "hdfHOME-1",
+          sessions: [
+            {
+              sessionID: "ses_CHILD_A",
+              handoffID: "hdfHOME-1",
+              title: "ses_CHILD_A",
+            },
+            {
+              sessionID: "ses_CHILD_B",
+              handoffID: "hdfHOME-1",
+              title: "ses_CHILD_B",
+            },
+          ],
+        },
       ]);
     });
 
     test("formats predecessor marker payload", () => {
       assert.equal(
         formatPredecessorSourcesForMarker([
-          { sessionID: "ses_CHILD", handoffID: "hdfHOME-1" },
-          { sessionID: "ses_OTHER", handoffID: "hdfHOME-2" },
+          {
+            sessionID: "ses_CHILD",
+            handoffID: "hdfHOME-1",
+            title: "ses_CHILD",
+          },
+          {
+            sessionID: "ses_OTHER",
+            handoffID: "hdfHOME-2",
+            title: "ses_OTHER",
+          },
         ]),
         "ses_CHILD via hdfHOME-1; ses_OTHER via hdfHOME-2",
       );

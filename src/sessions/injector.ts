@@ -41,14 +41,14 @@ export async function buildSessionReferenceInjectionParts({
       continue;
     }
 
-    const contextPack = await buildSessionContextPack({
+    const buildOutput = await buildSessionContextPack({
       client,
       directory,
       sessionID: entry.sessionID,
       locale,
     });
 
-    if (!contextPack) {
+    if (!buildOutput) {
       injectedParts.push(
         createSyntheticTextPart(
           renderInvalidReferenceBlock({
@@ -74,7 +74,7 @@ export async function buildSessionReferenceInjectionParts({
           `session_id: ${entry.sessionID}`,
           `source: ${entry.source}`,
           "",
-          contextPack,
+          buildOutput.pack,
           "[/Session Reference]",
         ].join("\n"),
         {

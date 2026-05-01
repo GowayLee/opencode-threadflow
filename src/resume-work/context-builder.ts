@@ -49,14 +49,14 @@ export async function buildResumeWorkContext({
 
   for (const session of recentSessions) {
     try {
-      const context = await buildSessionContextPack({
+      const buildOutput = await buildSessionContextPack({
         client,
         directory,
         sessionID: session.sessionID,
         locale,
       });
 
-      if (!context) {
+      if (!buildOutput) {
         results.push({
           status: "failed",
           sessionID: session.sessionID,
@@ -70,7 +70,7 @@ export async function buildResumeWorkContext({
         status: "loaded",
         sessionID: session.sessionID,
         label: session.label,
-        context,
+        context: buildOutput.pack,
       });
     } catch {
       results.push({

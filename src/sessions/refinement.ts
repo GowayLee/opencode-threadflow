@@ -7,6 +7,13 @@ import type {
 } from "@opencode-ai/sdk/v2";
 import type { Locale } from "../i18n/types";
 import { t } from "../i18n";
+import { parseChainMarker, type ChainEntry } from "../handoff/chain-parser";
+import {
+  extractHandoffIDsFromMessages,
+  getNonSyntheticTextParts,
+  resolvePredecessorSessions,
+  type HandoffMessageLike,
+} from "../handoff/lineage";
 
 const INJECTION_TEXT_LIMIT = 300;
 
@@ -172,12 +179,180 @@ type BuildContextPackParams = {
   locale: Locale;
 };
 
+type HandoffBranchEntry = {
+  sessionID: string;
+  handoffID: string;
+  title: string;
+  resolution: "resolved" | "ambiguous";
+  candidateCount?: number;
+};
+
+type SessionFlowRenderingData = {
+  upstreamChain: ChainEntry[];
+  currentSessionID: string;
+  currentTitle: string;
+  branches: HandoffBranchEntry[];
+  hasFlow: boolean;
+};
+
+function findFirstSourceChainMarker(
+  rawMessages: HandoffMessageLike[],
+): string | null {
+  for (const message of rawMessages) {
+    for (const text of getNonSyntheticTextParts(message)) {
+      const markerMatch = text.match(
+        /^\s*\[handoff-source-chain\]:\s+([^\r\n]+)(?:\r?\n|$)/m,
+      );
+      if (markerMatch) return markerMatch[1]!;
+    }
+  }
+  return null;
+}
+
+async function buildSessionFlowData({
+  rawMessages,
+  client,
+  directory,
+  sessionID,
+  sessionTitle,
+}: {
+  rawMessages: HandoffMessageLike[];
+  client: OpencodeClient;
+  directory: string;
+  sessionID: string;
+  sessionTitle: string;
+}): Promise<SessionFlowRenderingData | null> {
+  const sourceChainText = findFirstSourceChainMarker(rawMessages);
+  const handoffIDEntries = extractHandoffIDsFromMessages(
+    rawMessages,
+    sessionID,
+  );
+
+  if (!sourceChainText && handoffIDEntries.length === 0) return null;
+
+  let upstreamChain: ChainEntry[] = [];
+  if (sourceChainText) {
+    const allEntries = parseChainMarker(sourceChainText);
+    upstreamChain = allEntries.filter((e) => e.id !== sessionID);
+  }
+
+  let branches: HandoffBranchEntry[] = [];
+  if (handoffIDEntries.length > 0) {
+    try {
+      const resolution = await resolvePredecessorSessions({
+        client,
+        directory,
+        currentSessionID: sessionID,
+        handoffIDs: handoffIDEntries.map((e) => e.id),
+      });
+
+      for (const resolved of resolution.resolved) {
+        branches.push({
+          sessionID: resolved.sessionID,
+          handoffID: resolved.handoffID,
+          title: resolved.title,
+          resolution: "resolved",
+        });
+      }
+
+      for (const ambiguous of resolution.ambiguous) {
+        for (const session of ambiguous.sessions) {
+          branches.push({
+            sessionID: session.sessionID,
+            handoffID: session.handoffID,
+            title: session.title,
+            resolution: "ambiguous",
+            candidateCount: ambiguous.sessions.length,
+          });
+        }
+      }
+    } catch {
+      branches = [];
+    }
+  }
+
+  return {
+    upstreamChain,
+    currentSessionID: sessionID,
+    currentTitle: sessionTitle,
+    branches,
+    hasFlow: true,
+  };
+}
+
+function renderSessionFlowSection(flow: SessionFlowRenderingData): string[] {
+  const lines = ["## Session Flow", "", "### Upstream Chain", ""];
+
+  if (flow.upstreamChain.length === 0) {
+    lines.push("None", "");
+  } else {
+    const chainText = flow.upstreamChain
+      .map((entry) => {
+        const label = entry.label ? ` ${entry.label}` : "";
+        return `\`${entry.id}\`${label}`;
+      })
+      .join(" → ");
+    lines.push(chainText, "");
+  }
+
+  lines.push("### This Session", "");
+
+  const currentLabel = flow.currentTitle ? ` — ${flow.currentTitle}` : "";
+  lines.push(`\`${flow.currentSessionID}\`${currentLabel}`, "");
+
+  lines.push("### Handoff Branches", "");
+
+  const grouped = new Map<string, HandoffBranchEntry[]>();
+  for (const branch of flow.branches) {
+    const group = grouped.get(branch.handoffID);
+    if (group) group.push(branch);
+    else grouped.set(branch.handoffID, [branch]);
+  }
+
+  const handoffIDs = Array.from(grouped.keys()).sort();
+
+  if (handoffIDs.length === 0) {
+    lines.push("None", "");
+  } else {
+    for (const handoffID of handoffIDs) {
+      const group = grouped.get(handoffID)!;
+      lines.push(`**\`${handoffID}\`**`);
+
+      for (const branch of group) {
+        const label = branch.title ? ` — ${branch.title}` : "";
+        lines.push(`→ \`${branch.sessionID}\`${label}`);
+      }
+
+      const ambiguousSession = group.find(
+        (b) => b.resolution === "ambiguous" && b.candidateCount !== undefined,
+      );
+      if (ambiguousSession) {
+        lines.push(
+          `*(${ambiguousSession.candidateCount} candidates — ambiguous)*`,
+        );
+      }
+
+      lines.push("");
+    }
+  }
+
+  lines.push(
+    "Use `read_session` on any session ID in the flow to inspect further.",
+    "",
+  );
+
+  return lines;
+}
+
 export async function buildSessionContextPack({
   client,
   directory,
   sessionID,
   locale,
-}: BuildContextPackParams): Promise<string | null> {
+}: BuildContextPackParams): Promise<{
+  pack: string;
+  hasSessionFlow: boolean;
+} | null> {
   const [sessionResponse, messagesResponse] = await Promise.all([
     client.session.get({
       directory,
@@ -193,6 +368,15 @@ export async function buildSessionContextPack({
   if (!session) {
     return null;
   }
+
+  const rawMessages = (messagesResponse.data ?? []) as HandoffMessageLike[];
+  const sessionFlow = await buildSessionFlowData({
+    rawMessages,
+    client,
+    directory,
+    sessionID,
+    sessionTitle: session.title,
+  });
 
   const normalized = normalizeTranscript({
     session: {
@@ -206,13 +390,16 @@ export async function buildSessionContextPack({
   const reduction = reduceTurns(assembledTurns);
   const activityIndex = buildActivityIndex(reduction.compressedTurns);
 
-  return renderContextPack({
+  const pack = renderContextPack({
     locale,
     session: normalized.session,
     compressedTurns: reduction.compressedTurns,
     activitySummary: activityIndex,
     compressedContent: reduction.compressedContent,
+    ...(sessionFlow ? { sessionFlow } : {}),
   });
+
+  return { pack, hasSessionFlow: sessionFlow !== null };
 }
 
 export async function buildSessionPreviewPack({
@@ -220,7 +407,10 @@ export async function buildSessionPreviewPack({
   directory,
   sessionID,
   locale,
-}: BuildContextPackParams): Promise<string | null> {
+}: BuildContextPackParams): Promise<{
+  pack: string;
+  hasSessionFlow: boolean;
+} | null> {
   const [sessionResponse, messagesResponse] = await Promise.all([
     client.session.get({
       directory,
@@ -237,6 +427,15 @@ export async function buildSessionPreviewPack({
     return null;
   }
 
+  const rawMessages = (messagesResponse.data ?? []) as HandoffMessageLike[];
+  const sessionFlow = await buildSessionFlowData({
+    rawMessages,
+    client,
+    directory,
+    sessionID,
+    sessionTitle: session.title,
+  });
+
   const normalized = normalizeTranscript({
     session: {
       id: session.id,
@@ -248,12 +447,15 @@ export async function buildSessionPreviewPack({
   const assembledTurns = assembleTurns(normalized.messages);
   const previewSelection = selectPreviewTurns(assembledTurns);
 
-  return renderPreviewPack({
+  const pack = renderPreviewPack({
     locale,
     session: normalized.session,
     effectiveTurns: previewSelection.effectiveTurns,
     selectedTurns: previewSelection.selectedTurns,
+    ...(sessionFlow ? { sessionFlow } : {}),
   });
+
+  return { pack, hasSessionFlow: sessionFlow !== null };
 }
 
 export function normalizeTranscript(input: {
@@ -426,6 +628,7 @@ export function renderContextPack(input: {
   activityIndex?: ActivityIndex;
   compressedContent?: string[];
   omittedContent?: string[];
+  sessionFlow?: SessionFlowRenderingData;
 }): string {
   const { locale, session } = input;
   const compressedTurns = input.compressedTurns ?? input.reducedTurns ?? [];
@@ -504,6 +707,11 @@ export function renderContextPack(input: {
     }
   }
 
+  if (input.sessionFlow?.hasFlow) {
+    lines.push("");
+    lines.push(...renderSessionFlowSection(input.sessionFlow));
+  }
+
   return lines.join("\n");
 }
 
@@ -575,6 +783,7 @@ function renderPreviewPack(input: {
   session: SessionMetadata;
   effectiveTurns: PreviewTurn[];
   selectedTurns: PreviewTurn[];
+  sessionFlow?: SessionFlowRenderingData;
 }): string {
   const { locale } = input;
   const lines = [
@@ -584,10 +793,13 @@ function renderPreviewPack(input: {
     `- Title: ${formatTitle(locale, input.session.title)}`,
     `- Session ID: ${input.session.id}`,
     `- Updated At: ${new Date(input.session.updatedAt).toISOString()}`,
-    "",
-    "## Transcript Preview",
-    "",
   ];
+
+  if (input.sessionFlow?.hasFlow) {
+    lines.push("", ...renderSessionFlowSection(input.sessionFlow));
+  }
+
+  lines.push("", "## Transcript Preview", "");
 
   if (input.selectedTurns.length === 0) {
     lines.push(t(locale, "render.no_previewable_turns"), "");

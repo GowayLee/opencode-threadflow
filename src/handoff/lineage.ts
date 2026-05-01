@@ -12,12 +12,13 @@ export interface HandoffIDEntry {
 export interface HandoffPredecessorSource {
   sessionID: string;
   handoffID: string;
+  title: string;
 }
 
 export interface HandoffPredecessorResolution {
   resolved: HandoffPredecessorSource[];
   unresolved: string[];
-  ambiguous: Array<{ handoffID: string; sessionIDs: string[] }>;
+  ambiguous: Array<{ handoffID: string; sessions: HandoffPredecessorSource[] }>;
 }
 
 export type HandoffMessageLike = {
@@ -100,7 +101,7 @@ export async function resolvePredecessorSessions({
   handoffIDs: string[];
 }): Promise<HandoffPredecessorResolution> {
   const uniqueHandoffIDs = Array.from(new Set(handoffIDs));
-  const matches = new Map<string, string[]>();
+  const matches = new Map<string, HandoffPredecessorSource[]>();
   for (const handoffID of uniqueHandoffIDs) matches.set(handoffID, []);
 
   if (uniqueHandoffIDs.length === 0)
@@ -125,18 +126,24 @@ export async function resolvePredecessorSessions({
 
     for (const handoffID of uniqueHandoffIDs)
       if (containsExactHandoffIDMarker(firstUserText, handoffID))
-        matches.get(handoffID)!.push(session.id);
+        matches.get(handoffID)!.push({
+          sessionID: session.id,
+          handoffID,
+          title: session.title,
+        });
   }
 
   const resolved: HandoffPredecessorSource[] = [];
   const unresolved: string[] = [];
-  const ambiguous: Array<{ handoffID: string; sessionIDs: string[] }> = [];
+  const ambiguous: Array<{
+    handoffID: string;
+    sessions: HandoffPredecessorSource[];
+  }> = [];
 
   for (const handoffID of uniqueHandoffIDs) {
-    const sessionIDs = matches.get(handoffID) ?? [];
-    if (sessionIDs.length === 1)
-      resolved.push({ sessionID: sessionIDs[0]!, handoffID });
-    else if (sessionIDs.length > 1) ambiguous.push({ handoffID, sessionIDs });
+    const sessions = matches.get(handoffID) ?? [];
+    if (sessions.length === 1) resolved.push(sessions[0]!);
+    else if (sessions.length > 1) ambiguous.push({ handoffID, sessions });
     else unresolved.push(handoffID);
   }
 

@@ -59,33 +59,38 @@ export function createReadSessionTool({
           }),
         );
 
+      const buildPack =
+        readMode === "preview"
+          ? buildSessionPreviewPack
+          : buildSessionContextPack;
+
+      const buildResult = await buildPack({
+        client,
+        directory,
+        sessionID: normalizedSessionID,
+        locale,
+      });
+
+      if (!buildResult) {
+        return renderUnreadableResult(
+          locale,
+          t(locale, "tool.read_session.not_found", {
+            sessionID: normalizedSessionID,
+          }),
+        );
+      }
+
       context.metadata({
-        title: `Read session ${normalizedSessionID}`,
+        title: buildResult.hasSessionFlow
+          ? `Read session ${normalizedSessionID} (with session flow)`
+          : `Read session ${normalizedSessionID}`,
         metadata: {
           sessionID: normalizedSessionID,
           mode: readMode,
         },
       });
 
-      const buildPack =
-        readMode === "preview"
-          ? buildSessionPreviewPack
-          : buildSessionContextPack;
-
-      return (
-        (await buildPack({
-          client,
-          directory,
-          sessionID: normalizedSessionID,
-          locale,
-        })) ??
-        renderUnreadableResult(
-          locale,
-          t(locale, "tool.read_session.not_found", {
-            sessionID: normalizedSessionID,
-          }),
-        )
-      );
+      return buildResult.pack;
     },
   });
 }
